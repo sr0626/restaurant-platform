@@ -1,0 +1,12 @@
+.env
+.env.*
+terraform.tfvars
+!*.tfvars.example
+.terraform/
+*.tfstate
+*.tfstate.backup
+__pycache__/
+.pytest_cache/
+node_modules/
+.next/
+.DS_Store
