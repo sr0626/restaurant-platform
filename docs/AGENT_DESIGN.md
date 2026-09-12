@@ -125,14 +125,17 @@ Add `orchestrator.py` at the start of Phase 3 when you find yourself manually
 doing the same coordination steps repeatedly. Good indicators:
 - Adding a new city requires touching backend, frontend, infra, and tests
 - Adding a new feature type requires the same sequence every time
-- You want to run a nightly data quality check without sitting at the keyboard
+- You want to trigger a data quality check across all agents in one command
+  instead of doing it manually (still manual-trigger, just one command)
 
 ### How it works
 
 ```
 You → orchestrator.py → Claude API (with agent system prompt)
                       ↓
-             Task decomposed into steps
+             Task decomposed into subtasks (per agent)
+                      ↓
+        You review/edit/approve the subtask list  ← required, no auto-dispatch
                       ↓
         Step 1 → Backend agent API call → writes files
         Step 2 → Test agent API call    → writes tests
@@ -147,6 +150,11 @@ You → orchestrator.py → Claude API (with agent system prompt)
 - It does not merge to main — humans always review and merge
 - It does not make business decisions — it executes defined task sequences
 - It does not replace the focused sessions — those still exist for interactive dev
+- It does not dispatch subtasks without your approval — the review/approve step
+  above is required, not optional, every run
+- It does not run on a schedule — manual-trigger-only is a permanent constraint,
+  not a Phase 3 placeholder to be lifted later (decided 2026-09-12, see
+  `BRD_OPEN_ITEMS.md`)
 
 ### Example orchestrator tasks (Phase 3+)
 ```

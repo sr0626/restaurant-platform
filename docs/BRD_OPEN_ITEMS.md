@@ -44,13 +44,16 @@ Discussed as a "Chief of Staff" layer sitting above the per-directory agents (ba
 - Scheduled/autonomous runs without a manual trigger
 - Orchestrator self-rewriting agent prompts based on repeated failures (inspired by a "Chief of Staff" pattern seen in an external multi-agent-team demo — worth reviewing for Phase 2+ if useful)
 
-**UNRESOLVED CONFLICT with AGENT_DESIGN.md's Option 3 (`orchestrator.py`, Phase 3+) — needs a human decision, not silently picked:**
-- AGENT_DESIGN.md's Option 3 loop dispatches decomposed steps directly with **no user approval gate** before dispatch. This doc requires "user reviews/edits/approves the list" as step 3, before any dispatch. These two specs disagree.
-- AGENT_DESIGN.md's "deferred to later" framing for scheduled/autonomous runs leaves the door open to add scheduling to `orchestrator.py` later. This doc treats manual-trigger-only as a standing constraint, not something to phase out.
-- Action needed: decide which spec wins (or amend AGENT_DESIGN.md's Option 3 loop to add the approval gate and make manual-trigger-only explicit) before `orchestrator.py` is built in Phase 3.
+**RESOLVED — conflict with AGENT_DESIGN.md's Option 3 (`orchestrator.py`, Phase 3+):**
+Decided 2026-09-12: AGENT_DESIGN.md's Option 3 loop is amended to match this doc.
+1. **Approval gate before dispatch: required, every run.** No auto-dispatch.
+2. **Manual-trigger-only is a permanent constraint**, not a Phase 3 placeholder —
+   scheduled/autonomous runs are out of scope indefinitely, not just deferred.
+See AGENT_DESIGN.md's Option 3 "How it works" diagram and "What the orchestrator
+is NOT" list for the amended spec.
 
 ## Immediate action items (as of this doc)
 - [x] Commit the uncommitted Terraform work in `infra/` — done 2026-09-12, commit `64437aa`, pushed to `origin/main`
-- [ ] Reconcile this orchestrator concept against `AGENT_DESIGN.md` — conflict identified (see above), decision still pending
+- [x] Reconcile this orchestrator concept against `AGENT_DESIGN.md` — done 2026-09-12, approval gate + permanent manual-trigger rule added to AGENT_DESIGN.md Option 3
 - [ ] Resolve monetization pricing before Phase 2 (Monetize) work begins
 - [x] Flesh out claim flow before building the claim UI/backend logic — done, see DECISIONS.md "Claim flow" entry (Sep 2026)
