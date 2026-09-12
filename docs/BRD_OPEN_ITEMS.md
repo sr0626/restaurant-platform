@@ -1,0 +1,56 @@
+# Open Items & Orchestrator Concept
+
+_Compiled from Claude chat discussions — for reconciliation against `AGENT_DESIGN.md` and `DECISIONS.md`._
+
+## BRD Open Items
+
+These were flagged in a BRD review pass. Status as of the Phase 1 reconciliation pass (Sep 2026) — resolutions logged in `DECISIONS.md`.
+
+### Resolved (Phase 1 blockers — decided, see DECISIONS.md "Features & Product")
+3. **Claim flow specifics** — RESOLVED. Google Business Profile match or callback to the listing's public phone number as primary proof, document upload + admin review as fallback, single admin queue, 2-business-day SLA. Unclaimed listings stay visible with a "Claim this listing" CTA.
+5. **Restaurant hours schema** — RESOLVED (schema only). `restaurant_hours` table captured at seed time now to avoid a later migration. The "open now" *filter* is deferred to Phase 3.
+7. **Data seeding strategy** — RESOLVED. Admin-curated import from public listing sources (e.g. Google Places) for core fields, manual admin verification before publish, no scraped menus/hours.
+
+### Still open — deferred to a later phase (not Phase 1 blockers)
+1. **Monetization pricing** — mechanism is decided (per-location, $100/mo or $1,000/yr, `platform_pricing` table), but ad unit pricing and break-even math are not. Resolve before Phase 2 (Monetize) work begins.
+2. **Ads policy** — labeling/quality-bar policy for paid placement. Resolve before Phase 2.
+4. **Image/photo management** — upload mechanism is decided (S3 presigned URLs), but who uploads / size limits / CDN strategy are not. Resolve before Phase 2 ("full menus").
+6. **Notifications** — SES is confirmed as the email service, but deal-alert triggering/frequency logic is undefined. Resolve before Phase 2 (deals are a Phase 2 feature).
+8. **Multi-language support** — no phase assigned. Revisit at Phase 3 (Discovery+) alongside expansion features, or later.
+9. **GDPR/CCPA** — privacy policy and data deletion flow. Not a Phase 1 build blocker, but must be resolved before Phase 1 *ships* to real users.
+
+## Multi-Agent Orchestrator Concept (discussed, not yet built)
+
+Discussed as a "Chief of Staff" layer sitting above the per-directory agents (backend/frontend/infra/tests). **Check `AGENT_DESIGN.md` first — this may already be covered or may conflict with the existing design.**
+
+**Proposed role:**
+- Does not write code directly — reviews sub-agent output, tracks task status, flags problems, reports to the user.
+- Breaks a feature request down into subtasks assigned to the right sub-agent (backend/frontend/infra/tests).
+- **User approves the subtask breakdown before any dispatch** — no autonomous task creation.
+- Runs manually triggered only (not on a schedule / no autonomous background execution).
+
+**Proposed loop:**
+```
+1. User runs orchestrator with a feature request (e.g., "implement restaurant search by cuisine + geo radius")
+2. Orchestrator proposes subtask breakdown (which agent does what)
+3. User reviews/edits/approves the list
+4. Orchestrator dispatches approved tasks to each sub-agent (via Claude Code session or API call, using that agent's CLAUDE.md/system prompt)
+5. Each agent returns result + self-reported status (done/blocked/failed)
+6. Orchestrator evaluates (e.g., is there a matching test? did Terraform apply cleanly?)
+7. User gets a summary report: what shipped, what's blocked, what needs a decision
+```
+
+**Deferred to later phases:**
+- Scheduled/autonomous runs without a manual trigger
+- Orchestrator self-rewriting agent prompts based on repeated failures (inspired by a "Chief of Staff" pattern seen in an external multi-agent-team demo — worth reviewing for Phase 2+ if useful)
+
+**UNRESOLVED CONFLICT with AGENT_DESIGN.md's Option 3 (`orchestrator.py`, Phase 3+) — needs a human decision, not silently picked:**
+- AGENT_DESIGN.md's Option 3 loop dispatches decomposed steps directly with **no user approval gate** before dispatch. This doc requires "user reviews/edits/approves the list" as step 3, before any dispatch. These two specs disagree.
+- AGENT_DESIGN.md's "deferred to later" framing for scheduled/autonomous runs leaves the door open to add scheduling to `orchestrator.py` later. This doc treats manual-trigger-only as a standing constraint, not something to phase out.
+- Action needed: decide which spec wins (or amend AGENT_DESIGN.md's Option 3 loop to add the approval gate and make manual-trigger-only explicit) before `orchestrator.py` is built in Phase 3.
+
+## Immediate action items (as of this doc)
+- [x] Commit the uncommitted Terraform work in `infra/` — done 2026-09-12, commit `64437aa`, pushed to `origin/main`
+- [ ] Reconcile this orchestrator concept against `AGENT_DESIGN.md` — conflict identified (see above), decision still pending
+- [ ] Resolve monetization pricing before Phase 2 (Monetize) work begins
+- [x] Flesh out claim flow before building the claim UI/backend logic — done, see DECISIONS.md "Claim flow" entry (Sep 2026)

@@ -204,6 +204,41 @@ May 2026 | Data quality over crowdsourcing. Prevents spam, fake reviews, competi
 sabotage. Platform maintains editorial control.
 *Rejected: Yelp-style community edits (data quality risk)*
 
+**Claim flow: Google Business Profile match OR phone verification, admin-reviewed, 2-business-day SLA**
+Sep 2026 | Primary proof path: owner's Google Business Profile listing shows matching
+name/address, treated as pre-verified. Fallback: outbound call to the phone number
+already on the public listing (not one the claimant supplies) confirms identity.
+If neither passes, claimant uploads one supporting document (business license or
+utility bill) for manual admin review. Single admin queue, 2-business-day SLA for
+Phase 1 volume. Unclaimed listings (owner_id NULL, is_claimed=false — see Database
+section) stay visible and searchable with a "Claim this listing" CTA; nothing is
+hidden while unclaimed.
+*Rejected: Phone number claimant supplies (spoofable — no identity signal),
+crowdsourced/community verification (contradicts no-community-edits decision),
+no proof requirement (listing takeover risk)*
+
+**Restaurant hours: structured weekly schema captured at seed time, "open now" filter deferred to Phase 3**
+Sep 2026 | `restaurant_hours` table (location_id, day_of_week, open_time, close_time,
+is_closed) captured during data seeding so it isn't a schema migration later —
+cheap to add now, expensive to backfill. The "open now" filter/query logic itself
+is deferred to Phase 3 (Discovery+), consistent with map view and NLS search
+landing in that phase. Locations without confirmed hours at seed time get
+is_closed=NULL ("hours unknown, call ahead") rather than a guess.
+*Rejected: No hours field until Phase 3 (forces a migration + re-seed later),
+building the "open now" filter now (Phase 1 scope is directory + claim, not
+discovery features)*
+
+**Data seeding: admin-curated import from public listing sources, manual verification before publish**
+Sep 2026 | First ~500 DFW restaurants sourced from public business listing data
+(e.g. Google Places API) for core fields only — name, address, phone, regional
+cuisine tag. No scraped menus, hours default to unknown (see hours decision above).
+Each seeded row is admin-reviewed and marked verified=true before it's publicly
+visible, consistent with the no-community-edits / editorial-control decision.
+Owners can later claim and enrich their own listing.
+*Rejected: Fully automated scrape-and-publish (skips admin verification, data
+quality risk), partner/restaurant self-submission for the initial 500 (too slow
+to reach launch volume, no accounts exist yet)*
+
 ---
 
 ## Agent Architecture
