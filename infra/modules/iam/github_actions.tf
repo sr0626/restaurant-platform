@@ -124,13 +124,23 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
           "ecr:PutImage",
+          # Added: the deploy workflow's idempotency check and scan-gate
+          # step (devops/ci-pipeline-placeholder) call these — flagged by
+          # Architect's PR review, missing in the original policy.
+          "ecr:DescribeImages",
+          "ecr:DescribeImageScanFindings",
         ]
         Resource = var.ecr_repository_arn
       },
       {
-        Sid      = "LambdaUpdateOwnFunctionCode"
-        Effect   = "Allow"
-        Action   = ["lambda:UpdateFunctionCode"]
+        Sid    = "LambdaUpdateOwnFunctionCode"
+        Effect = "Allow"
+        Action = [
+          "lambda:UpdateFunctionCode",
+          # Added: the deploy workflow polls this after update-function-code
+          # to wait for the new image to become Active — same review finding.
+          "lambda:GetFunction",
+        ]
         Resource = local.api_lambda_arn
       }
     ]
