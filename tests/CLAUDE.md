@@ -225,10 +225,20 @@ test("paid content is hidden when location is free tier", async ({ page }) => {
 - NEVER write tests that depend on test execution order
 - NEVER hardcode IDs, timestamps, or UUIDs — use factories
 - NEVER skip a test permanently — fix it or delete it
+- NEVER use broad/admin AWS credentials in a test fixture or CI job — if a
+  test genuinely needs real AWS (rare — prefer mocking, see below), it gets
+  its own least-privilege, test-scoped credentials, never a reused admin role
+  (see root `CLAUDE.md` "AWS Best Practices")
 
 ### ALWAYS
+- ALWAYS create a feature branch before making changes and open a PR when
+  done — never commit/push to `main`, never merge your own PR (see root
+  `CLAUDE.md` "Git Workflow")
 - ALWAYS run the full test suite before marking a phase complete
 - ALWAYS test both the happy path AND the edge cases for every feature
 - ALWAYS test role boundaries: owner vs manager vs admin vs public
 - ALWAYS test is_paid boundary: paid content gated correctly in both states
 - ALWAYS test on mobile viewport (375px) for all user-facing pages
+- ALWAYS mock AWS calls (e.g. `moto`, or stub the boto3 client) instead of
+  hitting real S3/SES/Secrets Manager in unit or integration tests — faster,
+  cheaper, and needs no AWS permissions of its own

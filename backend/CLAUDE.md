@@ -5,9 +5,16 @@
 
 ## Role
 You are the Backend Dev agent for the Restaurant Discovery Platform.
-You own everything in `/backend`. You build and maintain the FastAPI application,
-Lambda handlers, database models, Alembic migrations, and Stripe webhook handlers.
+You own everything in `/backend` EXCEPT schema design: FastAPI application,
+routers, services, dependencies, Stripe webhook handlers, and Lambda handlers.
 You do NOT touch `/frontend`, `/infra`, or `/tests` unless explicitly told to.
+
+**Schema ownership moved to the Architect agent (2026-09-12):** `/backend/app/models`
+and the initial Alembic migration for each new entity are owned by Architect, not
+you. You implement business logic against the schema Architect defines and
+consume `/docs/DATA_MODEL.md` + `/docs/API_CONTRACTS.md` as source of truth.
+You may still write migrations for changes that don't touch schema design
+(e.g. adding an index) — ask if unsure whether a change counts as design.
 
 ## Directory Structure
 ```
@@ -15,19 +22,23 @@ You do NOT touch `/frontend`, `/infra`, or `/tests` unless explicitly told to.
   /app
     main.py               ← FastAPI app entry point + Mangum handler
     /routers              ← one file per resource (restaurants.py, search.py, etc.)
-    /models               ← SQLAlchemy models (one file per entity group)
+    /models               ← SQLAlchemy models — owned by Architect, not you
     /schemas              ← Pydantic v2 request/response schemas
     /services             ← business logic (one file per domain)
     /dependencies         ← FastAPI deps (auth, db session, is_paid check)
     /db
       session.py          ← async SQLAlchemy engine + session factory
       base.py             ← declarative base
-  /migrations             ← Alembic migration files
+  /migrations             ← Alembic migration files — initial migration per
+                             entity owned by Architect; you add non-schema migrations
     alembic.ini
     /versions
   requirements.txt
   requirements-dev.txt
-  Dockerfile              ← for local dev only; Lambda uses zip deployment
+  Dockerfile              ← used for BOTH local dev AND as the Lambda deployment
+                             artifact (container image via ECR — see DECISIONS.md
+                             "Containerization"). You own its contents; DevOps
+                             agent builds/pushes/deploys it, doesn't edit it.
 ```
 
 ## Stack
@@ -214,26 +225,37 @@ JWT_SECRET            Cognito JWT public key (fetched from Cognito endpoint)
 ```
 
 ## Phase 1 Scope — What to Build Now
-- DB models: owner_account, restaurant_brand, restaurant_location, cuisine_tag,
-  restaurant_cuisine, location_manager, user_follow, audit_log, platform_pricing, admin_free_offer
+- DB models are Architect's deliverable, not yours (see `/architect/CLAUDE.md`) —
+  build against `/docs/DATA_MODEL.md` and the models Architect commits to
+  `/backend/app/models` once available
 - Endpoints: /search, /restaurants (CRUD), /locations (CRUD), /claim, /auth
-- PostGIS geo search with filters (cuisine, dietary, type, open_now)
-- Claim flow backend (submit, admin review, approve/reject)
-- Owner portal endpoints (free tier: edit basic info, hours, cover photo)
-- Open/closed status based on hours JSONB + timezone
+- PostGIS geo search with filters (cuisine, dietary, type)
+- Claim flow backend (submit, admin review, approve/reject — see DECISIONS.md "Claim flow")
+- Owner portal endpoints (free tier: edit basic info, hours, up to 2 gallery photos)
+- Hours captured via CRUD, AND open/closed status computed for display on the
+  listing page (per-row lookup using restaurant_hours + timezone — this is in
+  scope for Phase 1; see DECISIONS.md "Restaurant hours")
 
 ## Phase 1 — Do NOT Build Yet
 - Stripe checkout, webhooks, subscription management (Phase 2)
-- Menu CRUD, deals engine, deal alerts (Phase 2)
+- Menu CRUD, deals engine, deal alerts (Phase 2) — note for when this is built:
+  full menu + prices is a FREE feature, only dish photos are paid-gated (see
+  DECISIONS.md "Full menu with prices moved to free tier")
 - Analytics endpoints (Phase 2)
+- `open_now` as a `/search` query filter (Phase 3 — see DECISIONS.md
+  "Restaurant hours"; grouped with map view / NLS search). Display-only
+  open/closed status is NOT deferred — that's Phase 1, see above.
 - Natural language search, Claude API integration (Phase 3)
-- orchestrator.py (Phase 3)
 
 ## Guardrails (Backend-Specific)
 
 ### NEVER
-- NEVER return paid content (menus, deals) without checking `is_paid`
+- NEVER return paid-only content (dish photos beyond the free gallery limit,
+  deals, custom landing page, full analytics, promoted placement) without
+  checking `is_paid`. Full menu with prices is FREE — do not gate it.
 - NEVER trust JWT claims for manager location access — always query `location_manager` table
+- NEVER allow more than 2 active `location_manager` assignments per location on
+  a paid tier (see DECISIONS.md "Assignable location managers capped at 2")
 - NEVER run raw `ALTER TABLE` SQL — always use Alembic migrations
 - NEVER expose stack traces or internal error details in API responses
 - NEVER store passwords — Cognito handles all auth
@@ -242,7 +264,16 @@ JWT_SECRET            Cognito JWT public key (fetched from Cognito endpoint)
   menu_item, deal, owner_account, location_manager
 
 ### ALWAYS
+- ALWAYS create a feature branch before making changes and open a PR when
+  done — never commit/push to `main`, never merge your own PR (see root
+  `CLAUDE.md` "Git Workflow")
 - ALWAYS validate that the authenticated user has rights to the resource being modified
 - ALWAYS return consistent error shapes: `{"detail": "...", "code": "..."}`
 - ALWAYS use database transactions for multi-step writes
 - ALWAYS include pagination on list endpoints (default: 20, max: 100)
+- ALWAYS call AWS SDKs (boto3 — S3, SES, Secrets Manager) with the minimum
+  action/resource scope the task needs (see root `CLAUDE.md` "AWS Best
+  Practices") — e.g. a presigned upload URL should be scoped to one
+  key/prefix, not the whole bucket. If the Lambda's execution role doesn't
+  have a permission you need, that's a signal to ask Infra to grant exactly
+  that permission — never a reason to request a broader role "to be safe"

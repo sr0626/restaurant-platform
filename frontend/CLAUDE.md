@@ -219,6 +219,9 @@ NEXT_PUBLIC_MAPS_TILE_URL    OpenStreetMap tile URL (no key needed)
 - NEVER expose the API URL or any key in client-side code except NEXT_PUBLIC_ vars
 
 ### ALWAYS
+- ALWAYS create a feature branch before making changes and open a PR when
+  done — never commit/push to `main`, never merge your own PR (see root
+  `CLAUDE.md` "Git Workflow")
 - ALWAYS SSR restaurant listing pages and search pages
 - ALWAYS include schema.org JSON-LD on every listing page
 - ALWAYS lazy-load Leaflet maps (SSR incompatible)

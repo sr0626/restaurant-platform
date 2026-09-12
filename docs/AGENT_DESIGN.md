@@ -25,12 +25,17 @@ Guardrails exist in three categories: **Cost**, **Security**, and **Scope**.
 
 ---
 
-## Architecture: Option 2 — Focused Sessions (Active: Phases 1 & 2)
+## Architecture: Option 2 — Focused Sessions (Supplementary, all phases)
 
 ### Overview
 Multiple Claude Code terminal sessions, each scoped to a specific directory.
 You are the human coordinator — you decide what each agent builds and in what order.
 No automation between agents. Simple, transparent, fully in your control.
+
+**Since 2026-09-12, this is no longer the primary path for Phase 1 build work** —
+that goes through the orchestrator (Option 3, below). Use a focused session for
+one-off work that doesn't need a subtask breakdown: a quick fix in one directory,
+exploring an approach before committing it to an orchestrator task, etc.
 
 ### How to use it
 
@@ -85,7 +90,11 @@ what the endpoint looks like. You are the communication layer between agents.
 
 ```
 /restaurant-app/          ← Root CLAUDE.md (all agents read this first)
+  /architect/             ← Architect agent (owns /backend/app/models, /docs/*.md contracts)
+    CLAUDE.md
   /backend/               ← Backend Dev agent
+    CLAUDE.md
+  /devops/                ← DevOps agent (owns CI/CD, container build/push/deploy)
     CLAUDE.md
   /frontend/              ← Frontend Dev agent
     CLAUDE.md
@@ -95,38 +104,54 @@ what the endpoint looks like. You are the communication layer between agents.
     CLAUDE.md
   /docs/
     AGENT_DESIGN.md       ← this file
-    BRD_v35.docx          ← business requirements
+    BRD_v36_Restaurant_Platform.docx          ← business requirements
 ```
 
-### Active agents in Phase 1 & 2
+### Active agents (from Phase 1)
 
 | Agent | Directory | Phases | Primary Output |
 |---|---|---|---|
-| Backend Dev | `/backend` | 1, 2, 3, 4 | FastAPI endpoints, Lambda handlers, DB models, Stripe webhooks |
+| Orchestrator | `orchestrator.py` (root) | 1, 2, 3, 4 | Task decomposition, subtask dispatch, status rollup |
+| Architect | `/architect` | 1, 2, 3, 4 | DB schema + migrations, `API_CONTRACTS.md`, `DATA_MODEL.md` |
+| Backend Dev | `/backend` | 1, 2, 3, 4 | FastAPI endpoints, Lambda handlers, Stripe webhooks |
+| DevOps | `/devops` | 1, 2, 3, 4 | CI/CD workflows, container build/push, deploy, (later) cross-account promotion |
 | Frontend Dev | `/frontend` | 1, 2, 3, 4 | Next.js pages, components, owner portal, manager dashboard |
 | Infra | `/infra` | 1, 2, 3, 4 | Terraform modules, IAM policies, AWS resource config |
 | QA | `/tests` | 1, 2, 3, 4 | pytest unit + integration, Playwright e2e, role boundary tests |
 
-> **Note:** There is no separate Architect agent in Phases 1–2. The Backend Dev agent
-> handles schema design because the codebase is small. The Architect role becomes
-> a dedicated agent in Phase 3+ when schema complexity warrants it.
+> **Added 2026-09-12:** DevOps is a 7th agent, split out from Infra because
+> CI/CD (image builds, deploys, eventual cross-account promotion) is a
+> distinct concern from defining Terraform resources. Infra still owns the
+> ECR repository and Lambda function *resources*; DevOps owns the pipeline
+> that builds images and ships them into those resources.
+
+> **Changed 2026-09-12:** Architect is now active from Phase 1 (previously
+> excluded from Phases 1–2, with Backend Dev handling schema design — see
+> `docs/DECISIONS.md`, superseded entry kept for history). Backend Dev no
+> longer owns `/backend/app/models`.
 
 ---
 
-## Architecture: Option 3 — Orchestrated Agents (Planned: Phase 3+)
+## Architecture: Option 3 — Orchestrated Agents (Active: Phase 1+)
 
 ### Overview
 Adds an `orchestrator.py` script that calls the Claude API programmatically.
 The orchestrator decomposes tasks and delegates to specialist agents automatically.
 Use this for **repeating, structured tasks** that currently require manual coordination.
 
-### When to add it
-Add `orchestrator.py` at the start of Phase 3 when you find yourself manually
-doing the same coordination steps repeatedly. Good indicators:
-- Adding a new city requires touching backend, frontend, infra, and tests
-- Adding a new feature type requires the same sequence every time
-- You want to trigger a data quality check across all agents in one command
-  instead of doing it manually (still manual-trigger, just one command)
+**Timing changed 2026-09-12:** originally planned for Phase 3+ (see BRD v3.5 and
+earlier versions of this file), the user decided to activate the orchestrator
+starting in Phase 1 instead — Phase 1 build work is dispatched through it rather
+than through ad hoc Option 2 sessions. Option 2 (focused sessions) still exists
+for one-off interactive work outside the orchestrator's task queue.
+
+### When it's used
+Every Phase 1+ feature request goes through the orchestrator: propose a subtask
+breakdown across backend/frontend/infra/tests, get explicit approval on that
+breakdown, then dispatch. Good fits:
+- A feature that touches more than one agent's directory in a coordinated way
+- Adding a new city — touches backend, frontend, infra, and tests together
+- Any repeating, structured sequence you'd otherwise coordinate by hand
 
 ### How it works
 
@@ -156,17 +181,18 @@ You → orchestrator.py → Claude API (with agent system prompt)
   not a Phase 3 placeholder to be lifted later (decided 2026-09-12, see
   `BRD_OPEN_ITEMS.md`)
 
-### Example orchestrator tasks (Phase 3+)
+### Example orchestrator tasks
 ```
+python orchestrator.py --task "implement-search-endpoint"
 python orchestrator.py --task "add-city" --city "Houston" --state "TX"
 python orchestrator.py --task "add-cuisine-tag" --tag "Chettinad"
 python orchestrator.py --task "run-data-quality-check"
 python orchestrator.py --task "generate-crud" --resource "promotion"
 ```
 
-### orchestrator.py structure (to be built in Phase 3)
+### orchestrator.py structure
 ```python
-# orchestrator.py — placeholder, built in Phase 3
+# orchestrator.py
 # Each agent is a Claude API call with:
 #   - system_prompt: the agent's CLAUDE.md content
 #   - tools: read_file, write_file, run_command (sandboxed)

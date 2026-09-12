@@ -8,7 +8,144 @@ Format: **Decision** | Date | Reasoning | Alternatives Rejected
 
 ---
 
+## Process & Documentation
+
+**Architect and the orchestrator decide judgment calls themselves and report the plan — standing rule**
+2026-09-12 | User decision: don't stop mid-task to ask about ambiguous
+design/schema/process questions with a reasonable answer (field naming, a
+cascade rule, how to sequence a plan) — decide, implement, and clearly
+report the decision and reasoning so the human can question, override, or
+approve it afterward. This is "propose the plan, then take questions," not
+"ask before every decision." Explicitly does NOT relax any "no exceptions"
+standing rule (git push, AWS commands, PR merges, feature-branch workflow)
+or the existing "Ask Human When" triggers (cross-directory work, >$50/mo,
+irreversible actions, genuinely ambiguous requirements, no-clear-answer
+security calls) — those remain hard stops. Codified in root `CLAUDE.md`
+("Decision-Making Autonomy") and `architect/CLAUDE.md`.
+*Rejected: keeping the prior ask-first posture (the two Architect tasks this
+session already showed that deciding-and-flagging produces better results
+than blocking on every judgment call)*
+
+**Every agent works on a feature branch and opens a PR — no direct commits/pushes to `main`, Architect reviews, human merges — standing rule, no exceptions**
+2026-09-12 | User decision. Formalizes and enforces what README.md's Git
+Conventions already said aspirationally ("No direct commits to main. All
+changes via pull request") but wasn't actually being followed by dispatched
+agent tasks. Flow: create a feature branch before any change → commit freely
+on that branch → pushing the branch and opening the PR both require the same
+per-action explicit permission as any other `git push` → Architect reviews
+every PR (schema, backend, frontend, infra, devops, tests) and adds comments,
+except a PR Architect itself opened, which skips straight to human review →
+the human alone approves and merges; no agent ever merges any PR. Codified in
+root `CLAUDE.md` ("Git Workflow", "NEVER — Session Control") and reinforced
+in every agent's own `CLAUDE.md` guardrails.
+*Rejected: letting agents merge their own PRs after Architect approval (removes
+the human's final say on what lands on `main`), requiring Architect
+self-review (no one designated to review the reviewer; human review already
+covers it)*
+
+**AWS best practices (least privilege, encryption, no hardcoded secrets) apply to every agent, not just Infra/DevOps**
+2026-09-12 | User decision. Infra and DevOps already had detailed AWS-security
+guardrails specific to their domain (IAM least-privilege rules, ECR
+scan-on-push, OIDC over static keys). Added a general "AWS Best Practices"
+section to root `CLAUDE.md`'s Universal Guardrails so every agent applies the
+same principles in their own domain, plus concrete role-specific instances:
+Architect (design for least-privilege data access, reference secrets via
+env/Secrets Manager not literals), Backend Dev (scope boto3 calls minimally,
+ask Infra for a specific permission rather than requesting a broader role),
+QA (never reuse broad/admin credentials in test fixtures, prefer mocking AWS
+calls over hitting real AWS in tests).
+*Rejected: leaving this implicit / assuming agents infer it from Infra's
+guardrails alone (Architect, Backend Dev, and QA don't read infra/CLAUDE.md
+by default, so the principle needs to live where they'll actually see it)*
+
+**Every git push and AWS CLI/SDK command is logged in `docs/CMD_LOG.md` — standing rule, no exceptions**
+2026-09-12, simplified same day | User decision, given while about to run the
+state-bucket setup commands. `docs/CMD_LOG.md` covers every `git push`, every
+AWS CLI/SDK command, and every `terraform plan`/`apply` — i.e. every action
+already gated by the "explicit permission every time" rules in root
+`CLAUDE.md`. Kept deliberately minimal per user follow-up the same day: just
+the commands, grouped by date, in execution order, tagged `# user` /
+`# claude` — no per-entry description, context, or result fields. Committed
+to git — it's an audit trail, not a secret; account IDs and credentials still
+live only in the gitignored `infra/ACCOUNTS.md`.
+*Rejected: relying on git log + terminal scrollback alone (scattered across
+two places and loses AWS commands entirely, since those aren't git-tracked
+by nature), logging in `infra/ACCOUNTS.md` (mixes a running log with a
+reference doc, and that file is gitignored — the log should be committed),
+a verbose per-entry format with context/result fields (user wanted it simple)*
+
+**Every BRD update bumps the version and logs it in the BRD's own Version History table — standing rule, no exceptions**
+2026-09-12, retention rule added same day | The BRD (`docs/BRD_v36_Restaurant_Platform.docx`
+as of this decision) now carries a "Version History" table (Version | Date |
+Changes) right after its title-page metadata. Any future edit to BRD content —
+not just this one — must:
+1. Bump the version number in the title-page metadata table
+2. Add a new row to the Version History table describing what changed and why
+3. Rename the file to match (`BRD_v<major>_Restaurant_Platform.docx`) and update
+   the three references to it (`README.md`, root `CLAUDE.md`, `docs/AGENT_DESIGN.md`)
+4. **Keep n-2 old version files before cleanup** — retain the current file's
+   two immediately-preceding versioned `.docx` files in `docs/` (3 files on
+   disk at any time: current + previous 2). Only delete the oldest kept file
+   once a new bump would make a 4th file exist. Never delete an old version's
+   file in the same edit that creates the new one — the deletion (if any) is a
+   separate, later cleanup step once the n-2 window is exceeded.
+No silent edits — the document must be able to answer "what changed and when"
+from its own content, without needing git history, and old versions stay
+recoverable from disk for a window rather than relying solely on git history.
+*Rejected: git history as the only changelog (BRD is reviewed by stakeholders who
+don't use git), a separate changelog file (splits the log from the document it
+describes), deleting the previous version immediately on every bump (no
+same-day fallback if the new version needs correcting)*
+
+---
+
 ## Infrastructure & Hosting
+
+**Region: `us-east-1`, confirmed despite DFW being the initial market**
+2026-09-12 | Considered switching to a west-coast region given the DFW launch
+market, but geography doesn't favor it: us-west-1/us-west-2 are farther from
+Dallas than us-east-1 (Virginia), not closer, so there's no latency argument
+for moving west. us-east-1 is already the default across every Terraform
+module and `terraform.tfvars.example`, and it has the broadest AWS service
+availability and typically the lowest pricing. No change made — confirming
+the existing default rather than picking a new region.
+*Rejected: us-west-1/us-west-2 (farther from Texas, no latency benefit, would
+require re-plumbing every module's default), us-east-2 (marginal geographic
+difference vs. us-east-1, not worth a config change for no real benefit)*
+
+**AWS account structure: AWS Organizations member accounts, one per environment, starting with `dev` only**
+2026-09-12 | User decision. New member accounts under the existing management/
+payer account — consolidated billing, no separate payment method per
+environment. Only `dev` is created now; `test` and `prod` follow later, added
+the same way when there's something worth staging or launching. Account
+creation itself is a manual step (AWS Organizations console, or
+`aws organizations create-account` run by the human) — no agent creates AWS
+accounts, ever (see root `CLAUDE.md` "NEVER — Session Control" and the
+Prohibited-actions policy this session operates under).
+*Rejected: fully standalone accounts with separate billing (no benefit over
+Organizations member accounts for this use case), setting up all three
+environments now (Phase 1 work only needs `dev`; test/prod would sit unused)*
+
+**Containerization: Lambda container images via ECR, chosen for cost at low/no load**
+2026-09-12 | User wants to containerize for easy promotion across environments,
+and asked for the cheapest option given light load expected for months to
+years. Compared against ECS Fargate and AWS App Runner:
+- **Lambda (container image)** — true scale-to-zero, pay per invocation/duration,
+  no VPC or NAT required. Cheapest at low/no traffic, matches the existing
+  Phase cost ladder ($20-50/mo Phase 1) exactly, because it's the same pricing
+  model as the zip-based Lambda already decided — only the packaging changes.
+- **App Runner** — simpler ops than Fargate, but no true scale-to-zero; some
+  baseline cost exists even at zero traffic.
+- **ECS Fargate** — most flexible, but needs a VPC and typically a NAT Gateway
+  or VPC endpoints, and tasks don't scale to zero as cleanly — highest cost
+  and complexity of the three, and the NAT Gateway path directly conflicts
+  with the existing "NEVER create a NAT Gateway" guardrail.
+Chose Lambda container images: same Mangum/FastAPI code, packaged as a Docker
+image (`backend/Dockerfile`) instead of a zip, stored in ECR, referenced by
+the Lambda function's `image_uri`. Promotable across environments by pushing
+the same image digest into each environment's ECR once `test`/`prod` exist.
+*Rejected: App Runner (baseline cost at zero traffic), ECS Fargate (VPC/NAT
+cost and complexity, guardrail conflict)*
 
 **All infrastructure runs on AWS — no external vendors**
 May 2026 | Single vendor means one bill, one IAM setup, one Terraform state.
@@ -132,6 +269,15 @@ manager handles admin.
 
 ## Billing & Payments
 
+**BRD corrected to match the existing per-location billing model (was internally inconsistent)**
+2026-09-12 | BRD section 3.3's intro paragraph said "tier is set at the owner
+level" while its own section 4 Core Principles said "billing is per-location" —
+directly contradicting each other. The per-location model was already decided
+(see "Per-location billing (not per-owner)" below) and is what the schema and
+Stripe design implement; the BRD's 3.3 paragraph was stale and has been fixed to
+match. No design change here — just removing a documentation inconsistency.
+*Rejected: nothing — this was a bug in the BRD text, not a real design choice*
+
 **Payment failure = immediate free tier, no grace period, no retries**
 May 2026 | Clean, simple, predictable. If you haven't paid, you're on free tier.
 No stale paid state. No complex retry logic. Daily reconciliation Lambda catches
@@ -160,6 +306,29 @@ Owner adds new location during free period — it gets the benefit too.
 ---
 
 ## Features & Product
+
+**Full menu with prices moved to free tier; dish photos split out as the paid feature (BRD 3.3)**
+2026-09-12 | The combined "Full menu with prices and dish photos" row (paid-only)
+is split into two: seeing the full menu with prices is now free for every
+location — it's core to a "genuinely useful free listing" (see Core Principles);
+professional dish photography remains a paid-only feature.
+*Rejected: keeping menu pricing behind the paywall (contradicts the free-tier
+usefulness principle already in the BRD)*
+
+**Photo gallery: 2 photos free, 10 photos paid per location (was 0 free / 10 paid)**
+2026-09-12 | BRD 3.3's "Up to 10 photos per location" row gave free listings zero
+gallery photos beyond the single cover photo. Changed to 2 free / 10 paid so free
+listings have some visual presence beyond one cover shot, while still leaving a
+clear upgrade incentive.
+*Rejected: 0 free (too bare for a "genuinely useful" free listing), unlimited
+free (removes the paid-tier incentive)*
+
+**Assignable location managers capped at 2 per location on paid tier (was unlimited)**
+2026-09-12 | BRD 3.3 previously allowed unlimited managers per paid location.
+Capped at 2 to keep the owner/manager permission surface small and reviewable
+for Phase 1–2 scale; revisit if a real owner needs more.
+*Rejected: unlimited (no stated need for it yet, harder to reason about audit
+trails and permission boundaries with an unbounded manager list)*
 
 **No location cap for free tier**
 May 2026 | Per-location billing makes the cap concept redundant. Owners can have
@@ -217,16 +386,20 @@ hidden while unclaimed.
 crowdsourced/community verification (contradicts no-community-edits decision),
 no proof requirement (listing takeover risk)*
 
-**Restaurant hours: structured weekly schema captured at seed time, "open now" filter deferred to Phase 3**
-Sep 2026 | `restaurant_hours` table (location_id, day_of_week, open_time, close_time,
-is_closed) captured during data seeding so it isn't a schema migration later —
-cheap to add now, expensive to backfill. The "open now" filter/query logic itself
-is deferred to Phase 3 (Discovery+), consistent with map view and NLS search
-landing in that phase. Locations without confirmed hours at seed time get
-is_closed=NULL ("hours unknown, call ahead") rather than a guess.
+**Restaurant hours: structured weekly schema + display status in Phase 1, "open now" search filter deferred to Phase 3**
+Sep 2026, revised 2026-09-12 | `restaurant_hours` table (location_id, day_of_week,
+open_time, close_time, is_closed) captured during data seeding so it isn't a
+schema migration later — cheap to add now, expensive to backfill. BRD section 3.3
+lists "Open/closed status + map pin" as a baseline feature for both tiers, so
+**computing and displaying open/closed status on the listing page is in Phase 1**
+(it's a per-row lookup, not a search feature). What's deferred to Phase 3
+(Discovery+, alongside map view and NLS search) is the `open_now` **search
+filter** — i.e. `/search?open_now=true` querying across all results. Locations
+without confirmed hours at seed time get is_closed=NULL ("hours unknown, call
+ahead") rather than a guess.
 *Rejected: No hours field until Phase 3 (forces a migration + re-seed later),
-building the "open now" filter now (Phase 1 scope is directory + claim, not
-discovery features)*
+no display status in Phase 1 (contradicts BRD 3.3 baseline feature), building
+the open_now search filter now (unnecessary scope for a directory-only Phase 1)*
 
 **Data seeding: admin-curated import from public listing sources, manual verification before publish**
 Sep 2026 | First ~500 DFW restaurants sourced from public business listing data
@@ -243,21 +416,53 @@ to reach launch volume, no accounts exist yet)*
 
 ## Agent Architecture
 
-**Option 2 now (focused sessions), Option 3 later (orchestrator)**
+**DevOps agent added, split from Infra**
+2026-09-12 | Containerization + CI/CD (image builds, deploys, eventual
+cross-account promotion once `test`/`prod` exist) is a distinct concern from
+defining Terraform resources. Infra still owns the ECR repo and Lambda
+function as Terraform resources; DevOps owns the pipeline that builds images
+and ships them into those resources (`.github/workflows/`, build/deploy
+scripts, the GitHub OIDC trust role's required permissions). See
+`devops/CLAUDE.md`.
+*Rejected: folding CI/CD into Infra's scope (conflates "what resources exist"
+with "how code moves through them," and Infra's scope was already broad)*
+
+**Orchestrator (Option 3) activated from Phase 1, not deferred to Phase 3 — supersedes prior decision below**
+2026-09-12 | User decision: Phase 1 build work is dispatched through `orchestrator.py`
+from the start, not through manually coordinated Option 2 sessions. Approval-gate
+and manual-trigger-only constraints (decided earlier the same session, see
+`BRD_OPEN_ITEMS.md`) still apply — the orchestrator proposes a subtask breakdown,
+a human approves it, then it dispatches. Option 2 (focused sessions) remains
+available for one-off work outside the task queue. See `AGENT_DESIGN.md`
+Option 3 for the updated "Active: Phase 1+" spec.
+*Rejected: waiting for Phase 3 as originally planned (superseded by explicit user
+instruction to start now)*
+
+**(Superseded 2026-09-12 — kept for history) Option 2 now (focused sessions), Option 3 later (orchestrator)**
 May 2026 | Phases 1–2: manually coordinated Claude Code sessions per directory.
 Simple, transparent, human stays in control. orchestrator.py built in Phase 3
 for automated repeating tasks (add city, add feature type, data quality checks).
-*Rejected: Single agent (context pollution), orchestrator from day 1 (over-engineering)*
+*Rejected: Single agent (context pollution), orchestrator from day 1 (over-engineering — reversed 2026-09-12)*
 
 **5 CLAUDE.md files (root + 4 agents)**
 May 2026 | Root: shared context for all. Agent-specific: focused skills + guardrails.
 Each file is concise — not a novel. Context window is finite.
 *Rejected: Single mega CLAUDE.md (too large, unfocused)*
 
-**No separate Architect agent in Phases 1–2**
+**Architect agent activated from Phase 1 — supersedes prior decision below**
+2026-09-12 | User decision, prompted by BRD section 5.1 and the Executive
+Summary already listing a 6-agent roster (Orchestrator, Architect, Backend Dev,
+Frontend Dev, Infra, QA) that this repo's `AGENT_DESIGN.md` hadn't matched.
+Architect owns `/backend/app/models`, the initial migration per entity, and
+`/docs/API_CONTRACTS.md` / `/docs/DATA_MODEL.md`. Backend Dev no longer owns
+schema design. See `architect/CLAUDE.md`.
+*Rejected: leaving Backend Dev to own schema design (superseded — BRD already
+specified a separate Architect role, the repo just hadn't caught up)*
+
+**(Superseded 2026-09-12 — kept for history) No separate Architect agent in Phases 1–2**
 May 2026 | Backend Dev agent handles schema design because the codebase is small.
 Architect becomes a dedicated agent in Phase 3+ when schema complexity warrants it.
-*Rejected: Separate Architect from day 1 (unnecessary coordination overhead)*
+*Rejected: Separate Architect from day 1 (unnecessary coordination overhead — reversed 2026-09-12)*
 
 ---
 

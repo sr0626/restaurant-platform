@@ -2,7 +2,7 @@
 
 Indian restaurant discovery, regional cuisine filtering, deals, and owner-managed listings.
 
-**Stack:** Python FastAPI · Next.js 14 · Aurora PostgreSQL + PostGIS · AWS (all-in) · Terraform · Stripe
+**Stack:** Python FastAPI (containerized, ECR + Lambda) · Next.js 14 · Aurora PostgreSQL + PostGIS · AWS (all-in, AWS Organizations multi-account) · Terraform · Stripe
 
 ---
 
@@ -14,6 +14,7 @@ Indian restaurant discovery, regional cuisine filtering, deals, and owner-manage
 |---|---|---|
 | Claude Code | latest | `claude --version` |
 | AWS CLI | 2.x | `aws --version` |
+| Docker | any recent | `docker --version` |
 | Terraform | 1.7+ | `terraform --version` |
 | Python | 3.12 | `python3 --version` |
 | Node.js | 18+ | `node --version` |
@@ -24,11 +25,18 @@ AWS credentials configured: `aws configure` then `aws sts get-caller-identity`
 ### First time setup
 
 ```bash
+# 0. Create the `dev` AWS account (one-time, MANUAL — no agent does this).
+#    AWS Organizations console (or CLI) on your management/payer account:
+#    Organizations -> Accounts -> Add an AWS account -> name it, give it an
+#    email not used by any other AWS account. See docs/DECISIONS.md
+#    "AWS account structure". Configure a local AWS CLI profile for it
+#    (e.g. `aws configure --profile restaurant-platform-dev`) before step 2.
+
 # 1. Clone
 git clone https://github.com/YOUR_ORG/restaurant-platform.git
 cd restaurant-platform
 
-# 2. Create Terraform remote state (one-time, manual)
+# 2. Create Terraform remote state (one-time, manual, in the dev account)
 aws s3 mb s3://restaurant-platform-tfstate-INITIALS --region us-east-1
 aws s3api put-bucket-versioning \
   --bucket restaurant-platform-tfstate-INITIALS \
@@ -54,13 +62,17 @@ restaurant-platform/
   CLAUDE.md                   ← shared agent context (all agents read this)
   README.md                   ← this file
   .gitignore
+  orchestrator.py              ← task decomposition + dispatch (active from Phase 1)
+
+  /architect                   ← DB schema, migrations, API/data contracts
+    CLAUDE.md                 ← Architect agent instructions
 
   /backend                    ← FastAPI app + Lambda handlers
     CLAUDE.md                 ← Backend Dev agent instructions
     /app
       main.py                 ← FastAPI entry + Mangum Lambda handler
       /routers                ← one file per resource
-      /models                 ← SQLAlchemy models
+      /models                 ← SQLAlchemy models (owned by Architect)
       /schemas                ← Pydantic v2 schemas
       /services               ← business logic
       /dependencies           ← auth, db session, tier checks
@@ -70,6 +82,10 @@ restaurant-platform/
     /migrations               ← Alembic migrations
     requirements.txt
     requirements-dev.txt
+    Dockerfile                ← local dev AND the Lambda deployment artifact
+
+  /devops                     ← CI/CD: container build/push/deploy
+    CLAUDE.md                 ← DevOps agent instructions
 
   /frontend                   ← Next.js 14 app
     CLAUDE.md                 ← Frontend Dev agent instructions
@@ -91,6 +107,7 @@ restaurant-platform/
     terraform.tfvars.example
     /modules
       /aurora
+      /ecr                    ← container image repository
       /lambda
       /cognito
       /s3
@@ -110,28 +127,37 @@ restaurant-platform/
 
   /docs
     README.md                 ← this file
-    AGENT_DESIGN.md           ← agent architecture (Option 2 → Option 3)
+    AGENT_DESIGN.md           ← agent architecture (Option 3 active from Phase 1)
     DECISIONS.md              ← architecture decision log
     TAXONOMY.md               ← cuisine/dietary/type tag definitions
-    API_CONTRACTS.md          ← endpoint specs (created by backend agent)
-    DATA_MODEL.md             ← ERD + entity descriptions (created by backend agent)
+    API_CONTRACTS.md          ← endpoint specs (created by architect agent)
+    DATA_MODEL.md             ← ERD + entity descriptions (created by architect agent)
     ENVIRONMENTS.md           ← AWS resource names per env (created after tf apply)
-    BRD_v35.docx              ← business requirements document
+    BRD_v36_Restaurant_Platform.docx              ← business requirements document
 ```
 
 ---
 
 ## Agent Sessions
 
-Each directory has a `CLAUDE.md` that configures Claude Code for that role.
-Open a terminal in the correct directory and run `claude`.
+**Since 2026-09-12, Phase 1+ build work is dispatched through the orchestrator**
+(propose subtask breakdown → human approves → dispatch), not run as ad hoc
+sessions below. Each directory still has a `CLAUDE.md` that configures Claude
+Code for that role — used directly for one-off work outside the orchestrator's
+task queue:
 
 ```bash
+# Architect work (schema, migrations, API/data contracts)
+cd restaurant-platform/architect && claude
+
 # Infra work
 cd restaurant-platform/infra && claude
 
 # Backend API work
 cd restaurant-platform/backend && claude
+
+# DevOps work (CI/CD, container build/push/deploy)
+cd restaurant-platform/devops && claude
 
 # Frontend work
 cd restaurant-platform/frontend && claude
@@ -249,6 +275,11 @@ uvicorn app.main:app --reload --port 8000
 cd frontend
 npm install
 npm run dev
+
+# Build the backend container image locally (same Dockerfile Lambda runs)
+cd backend
+docker build -t restaurant-platform-api:local .
+docker run -p 8000:8000 --env-file .env restaurant-platform-api:local
 
 # Terraform plan (never apply in this repo — human runs apply)
 cd infra

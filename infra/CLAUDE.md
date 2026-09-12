@@ -19,7 +19,8 @@ You do NOT touch `/backend`, `/frontend`, or `/tests` unless explicitly told to.
   backend.tf            ← S3 remote state config
   /modules
     /aurora             ← Aurora Serverless v2 + PostGIS
-    /lambda             ← Lambda functions + API Gateway
+    /ecr                ← Container image repository (added 2026-09-12)
+    /lambda             ← Lambda functions (container image) + API Gateway
     /cognito            ← User pools + app clients
     /s3                 ← Media bucket + CloudFront
     /amplify            ← Amplify app + branch config
@@ -93,17 +94,43 @@ resource "aws_rds_cluster_instance" "main" {
 # PostGIS is enabled via Alembic migration (CREATE EXTENSION postgis) — not here
 ```
 
-### Lambda + API Gateway
+### ECR (added 2026-09-12 — see DECISIONS.md "Containerization")
+```hcl
+# /infra/modules/ecr/main.tf
+resource "aws_ecr_repository" "api" {
+  name                 = "${var.project}-api-${var.env}"
+  image_tag_mutability = "IMMUTABLE"   # never overwrite a pushed tag
+  image_scanning_configuration { scan_on_push = true }
+  tags = local.common_tags
+}
+
+resource "aws_ecr_lifecycle_policy" "api" {
+  repository = aws_ecr_repository.api.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Expire untagged images after 14 days"
+      selection    = { tagStatus = "untagged", countType = "sinceImagePushed", countUnit = "days", countNumber = 14 }
+      action       = { type = "expire" }
+    }]
+  })
+}
+# The repo is Infra's resource. Building images and pushing to it is the
+# DevOps agent's job (see /devops/CLAUDE.md) — not done here, not done by Terraform.
+```
+
+### Lambda + API Gateway (container image, not zip — see DECISIONS.md "Containerization")
 ```hcl
 # /infra/modules/lambda/main.tf
 resource "aws_lambda_function" "api" {
   function_name = "${var.project}-api-${var.env}"
-  runtime       = "python3.12"
-  handler       = "app.main.handler"    # Mangum handler
+  package_type  = "Image"
+  image_uri     = var.lambda_image_uri   # "<ecr_repo_url>:<tag-or-digest>" — set by DevOps's deploy step, not hand-edited
   role          = aws_iam_role.lambda.arn
-  filename      = var.lambda_zip_path
   timeout       = 30
   memory_size   = 512
+  # No "runtime" or "handler" args with package_type = "Image" — the
+  # CMD/ENTRYPOINT in the Dockerfile is the handler (Mangum-wrapped FastAPI app)
 
   environment {
     variables = {
@@ -117,6 +144,8 @@ resource "aws_lambda_function" "api" {
   }
   tags = local.common_tags
 }
+# Still scale-to-zero, still pay-per-invocation — container packaging changes
+# how the code is built and shipped, not the Lambda pricing/cost model.
 
 resource "aws_apigatewayv2_api" "main" {
   name          = "${var.project}-${var.env}"
@@ -257,14 +286,35 @@ Every Lambda gets its own IAM role with only the permissions it needs:
 - Terraform references secret ARNs, not secret values
 - Local dev uses `.env` file (in `.gitignore`) — never committed
 
+## Environments (added 2026-09-12 — see DECISIONS.md "AWS account structure")
+- **Account IDs, ARNs, and org paths live in `infra/ACCOUNTS.md`** (gitignored
+  — not secret exactly, but kept out of git per the user's instruction).
+  `dev` was created 2026-09-12. Read that file for the actual account ID
+  before writing anything that references one (IAM role trust policies,
+  cross-account ARNs) — never guess or hardcode an account ID from memory.
+- **Only a `dev` AWS Organizations member account exists right now.** No
+  `test` or `prod` account yet — don't provision anything account-structure-
+  related for them (cross-account IAM trust, promotion pipelines) until they
+  exist. `test`/`prod` will be added later, same pattern (Organizations
+  member account under the same management/payer account).
+- `var.env = "dev"` for everything right now. Don't hardcode `"dev"` anywhere
+  a future env value needs to slot in — always go through `var.env`.
+- Terraform targets the `dev` account via `AWS_PROFILE=restaurant-platform-dev`
+  (IAM Identity Center / SSO, no static keys — see `infra/ACCOUNTS.md`), set
+  by the human before running any `terraform` or `aws` command. You never see
+  or handle the account's credentials directly — sessions expire and the
+  human re-runs `aws sso login --profile restaurant-platform-dev` as needed.
+
 ## Phase 1 Scope — What to Provision Now
 - Aurora Serverless v2 cluster (PostGIS enabled via migration)
-- Lambda function + API Gateway HTTP API
+- ECR repository for the backend API image (see "ECR" pattern below)
+- Lambda function (container image, not zip) + API Gateway HTTP API
 - Cognito User Pool with 4 groups (email via COGNITO_DEFAULT — see below)
 - S3 media bucket + CloudFront distribution
 - AWS Amplify app + main branch
 - EventBridge cron for deal expiry Lambda
-- IAM roles (Lambda execution, Amplify deploy)
+- IAM roles (Lambda execution, Amplify deploy, GitHub Actions OIDC role for
+  the DevOps agent's pipeline — see `/devops/CLAUDE.md`)
 - S3 remote state bucket + DynamoDB lock table
 - Secrets Manager secrets (DB URL, Stripe keys)
 
@@ -309,8 +359,16 @@ Every Lambda gets its own IAM role with only the permissions it needs:
 - NEVER run `terraform apply` — output the plan and stop
 - NEVER modify production infrastructure directly
 - NEVER create resources in a region other than `var.aws_region`
+- NEVER run ANY AWS CLI or SDK command against real AWS — `aws s3 mb`,
+  `aws sts get-caller-identity`, `terraform apply`/`import`/`destroy`, boto3
+  calls, all of it — without explicit permission for that exact command,
+  every time. No standing approval carries over from a prior command in the
+  same session, even a read-only one. Always show the command and wait.
 
 ### ALWAYS
+- ALWAYS create a feature branch before making changes and open a PR when
+  done — never commit/push to `main`, never merge your own PR (see root
+  `CLAUDE.md` "Git Workflow")
 - ALWAYS tag every resource with common_tags
 - ALWAYS use `deletion_protection = true` on Aurora in prod
 - ALWAYS output resource ARNs and URLs so other modules can reference them
