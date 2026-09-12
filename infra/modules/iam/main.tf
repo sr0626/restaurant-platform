@@ -1,0 +1,130 @@
+locals {
+  common_tags = {
+    project     = var.project
+    environment = var.env
+    phase       = var.phase
+    managed_by  = "terraform"
+  }
+
+  # Construct log group ARNs from known naming convention (avoids circular deps)
+  api_log_group_arn         = "arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:/aws/lambda/${var.project}-api-${var.env}:*"
+  deal_expiry_log_group_arn = "arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:/aws/lambda/${var.project}-deal-expiry-${var.env}:*"
+}
+
+# -------------------------------------------------------------------
+# Shared Lambda trust policy
+# -------------------------------------------------------------------
+data "aws_iam_policy_document" "lambda_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+# -------------------------------------------------------------------
+# API Lambda execution role
+# -------------------------------------------------------------------
+resource "aws_iam_role" "api_lambda" {
+  name               = "${var.project}-api-lambda-${var.env}"
+  assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
+
+  tags = local.common_tags
+}
+
+# AWSLambdaVPCAccessExecutionRole — grants CreateNetworkInterface / DeleteNetworkInterface
+# needed for Lambda to attach to the private subnets
+resource "aws_iam_role_policy_attachment" "api_lambda_vpc" {
+  role       = aws_iam_role.api_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role_policy" "api_lambda_custom" {
+  name = "${var.project}-api-lambda-policy-${var.env}"
+  role = aws_iam_role.api_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "S3MediaReadWrite"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject"
+        ]
+        Resource = "${var.media_bucket_arn}/*"
+      },
+      {
+        Sid      = "S3MediaList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = var.media_bucket_arn
+      },
+      {
+        Sid    = "SecretsManagerRead"
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = [
+          var.db_secret_arn,
+          var.stripe_secret_key_arn,
+          var.stripe_webhook_secret_arn,
+        ]
+      },
+      {
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = local.api_log_group_arn
+      }
+    ]
+  })
+}
+
+# -------------------------------------------------------------------
+# Deal-expiry Lambda execution role — DB read only; no S3 or SES needed
+# -------------------------------------------------------------------
+resource "aws_iam_role" "deal_expiry_lambda" {
+  name               = "${var.project}-deal-expiry-lambda-${var.env}"
+  assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "deal_expiry_lambda_vpc" {
+  role       = aws_iam_role.deal_expiry_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role_policy" "deal_expiry_lambda_custom" {
+  name = "${var.project}-deal-expiry-lambda-policy-${var.env}"
+  role = aws_iam_role.deal_expiry_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "SecretsManagerRead"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = var.db_secret_arn
+      },
+      {
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = local.deal_expiry_log_group_arn
+      }
+    ]
+  })
+}

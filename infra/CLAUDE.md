@@ -260,16 +260,30 @@ Every Lambda gets its own IAM role with only the permissions it needs:
 ## Phase 1 Scope — What to Provision Now
 - Aurora Serverless v2 cluster (PostGIS enabled via migration)
 - Lambda function + API Gateway HTTP API
-- Cognito User Pool with 4 groups
+- Cognito User Pool with 4 groups (email via COGNITO_DEFAULT — see below)
 - S3 media bucket + CloudFront distribution
 - AWS Amplify app + main branch
-- SES email identity (+ request production access manually)
 - EventBridge cron for deal expiry Lambda
 - IAM roles (Lambda execution, Amplify deploy)
 - S3 remote state bucket + DynamoDB lock table
 - Secrets Manager secrets (DB URL, Stripe keys)
 
 ## Phase 1 — Do NOT Provision Yet
+- **SES** — deferred to reduce cost; Cognito uses `COGNITO_DEFAULT` email (50 emails/day,
+  sufficient for Phase 1). Re-enable when approaching that limit or needing a custom sender.
+  **To re-enable:**
+  1. `variables.tf` — add back `variable "ses_from_address"` (string)
+  2. `terraform.tfvars` — add `ses_from_address = "your@email.com"`
+  3. `main.tf` — uncomment `module "ses"` block (pass `env`, `project`, `phase`, `ses_from_address`)
+  4. `modules/cognito/variables.tf` — add back `ses_from_address` and `ses_identity_arn`
+  5. `modules/cognito/main.tf` — restore Cognito-SES IAM role + switch `email_sending_account`
+     to `"DEVELOPER"` with `source_arn` and `from_email_address`
+  6. `modules/iam/variables.tf` — add back `ses_from_address`; restore `SESEmail` statement
+     in `api_lambda_custom` policy
+  7. `modules/lambda/variables.tf` — add back `ses_from_address`; add `SES_FROM_ADDRESS`
+     env var back to `aws_lambda_function.api`
+  8. `modules/networking/main.tf` — add back `aws_vpc_endpoint "ses"` (interface endpoint)
+  9. Request SES production access via AWS Console before sending to external addresses
 - RDS Proxy (Phase 3+ when connection issues appear)
 - ElastiCache Redis (Phase 3+ for geo search cache)
 - WAF rules (Phase 3+)

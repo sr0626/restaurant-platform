@@ -1,0 +1,191 @@
+# -------------------------------------------------------------------
+# Restaurant Platform — Phase 1 Root Module
+#
+# Module dependency order (Terraform resolves automatically via references):
+#   networking  (no deps)
+#   ses         (no deps)
+#   s3          (no deps)
+#   cognito     → ses
+#   aurora      → networking
+#   iam         → aurora, s3, (stripe secrets defined inline)
+#   lambda      → networking, iam, aurora, cognito, s3
+#   eventbridge → lambda
+#   amplify     → lambda, cognito, s3
+# -------------------------------------------------------------------
+
+data "aws_caller_identity" "current" {}
+
+# -------------------------------------------------------------------
+# Networking — VPC, private subnets, SGs, VPC endpoints
+# No NAT Gateway; Lambda reaches AWS services via VPC endpoints only.
+# -------------------------------------------------------------------
+module "networking" {
+  source = "./modules/networking"
+
+  env        = var.env
+  project    = var.project
+  phase      = var.phase
+  aws_region = var.aws_region
+}
+
+# SES deferred — modules/ses/ scaffold is written; wire it back in when needed.
+
+# -------------------------------------------------------------------
+# S3 — private media bucket + CloudFront OAC distribution
+# -------------------------------------------------------------------
+module "s3" {
+  source = "./modules/s3"
+
+  env        = var.env
+  project    = var.project
+  phase      = var.phase
+  aws_region = var.aws_region
+}
+
+# -------------------------------------------------------------------
+# Cognito — User Pool with 4 groups; transactional email via SES
+# -------------------------------------------------------------------
+module "cognito" {
+  source = "./modules/cognito"
+
+  env     = var.env
+  project = var.project
+  phase   = var.phase
+}
+
+# -------------------------------------------------------------------
+# Aurora Serverless v2 — PostgreSQL 15, min=0 (scale to zero)
+# PostGIS enabled via Alembic migration — NOT provisioned here.
+# -------------------------------------------------------------------
+module "aurora" {
+  source = "./modules/aurora"
+
+  env          = var.env
+  project      = var.project
+  phase        = var.phase
+  aws_region   = var.aws_region
+  db_username  = var.db_username
+  max_capacity = var.aurora_max_capacity
+
+  vpc_id       = module.networking.vpc_id
+  subnet_ids   = module.networking.private_subnet_ids
+  lambda_sg_id = module.networking.lambda_sg_id
+}
+
+# -------------------------------------------------------------------
+# Phase-2 Secrets Manager placeholders — pre-provision slots only.
+# Populate with real Stripe values before Phase 2 activation.
+# -------------------------------------------------------------------
+resource "aws_secretsmanager_secret" "stripe_secret_key" {
+  name                    = "${var.project}/${var.env}/STRIPE_SECRET_KEY"
+  description             = "Stripe secret API key — Phase 2 placeholder"
+  recovery_window_in_days = var.env == "prod" ? 30 : 0
+
+  tags = {
+    project     = var.project
+    environment = var.env
+    phase       = var.phase
+    managed_by  = "terraform"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "stripe_secret_key" {
+  secret_id     = aws_secretsmanager_secret.stripe_secret_key.id
+  secret_string = "PLACEHOLDER — update with real Stripe secret key before Phase 2"
+}
+
+resource "aws_secretsmanager_secret" "stripe_webhook_secret" {
+  name                    = "${var.project}/${var.env}/STRIPE_WEBHOOK_SECRET"
+  description             = "Stripe webhook signing secret — Phase 2 placeholder"
+  recovery_window_in_days = var.env == "prod" ? 30 : 0
+
+  tags = {
+    project     = var.project
+    environment = var.env
+    phase       = var.phase
+    managed_by  = "terraform"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "stripe_webhook_secret" {
+  secret_id     = aws_secretsmanager_secret.stripe_webhook_secret.id
+  secret_string = "PLACEHOLDER — update with real Stripe webhook secret before Phase 2"
+}
+
+# -------------------------------------------------------------------
+# IAM — least-privilege execution roles; one per Lambda
+# -------------------------------------------------------------------
+module "iam" {
+  source = "./modules/iam"
+
+  env        = var.env
+  project    = var.project
+  phase      = var.phase
+  aws_region = var.aws_region
+  account_id = data.aws_caller_identity.current.account_id
+
+  media_bucket_arn          = module.s3.media_bucket_arn
+  db_secret_arn             = module.aurora.db_secret_arn
+  stripe_secret_key_arn     = aws_secretsmanager_secret.stripe_secret_key.arn
+  stripe_webhook_secret_arn = aws_secretsmanager_secret.stripe_webhook_secret.arn
+}
+
+# -------------------------------------------------------------------
+# Lambda — API (Mangum/FastAPI) + deal-expiry; both in private subnets
+# -------------------------------------------------------------------
+module "lambda" {
+  source = "./modules/lambda"
+
+  env        = var.env
+  project    = var.project
+  phase      = var.phase
+  aws_region = var.aws_region
+
+  vpc_id       = module.networking.vpc_id
+  subnet_ids   = module.networking.private_subnet_ids
+  lambda_sg_id = module.networking.lambda_sg_id
+
+  api_lambda_role_arn         = module.iam.api_lambda_role_arn
+  deal_expiry_lambda_role_arn = module.iam.deal_expiry_lambda_role_arn
+
+  db_secret_name       = module.aurora.db_secret_name
+  media_bucket_name    = module.s3.media_bucket_name
+  cognito_user_pool_id = module.cognito.user_pool_id
+  allowed_origins      = var.allowed_origins
+}
+
+# -------------------------------------------------------------------
+# EventBridge Scheduler — deal expiry cron (rate 5 min)
+# Single rule — NOT one per deal; Lambda scans all expired deals.
+# -------------------------------------------------------------------
+module "eventbridge" {
+  source = "./modules/eventbridge"
+
+  env        = var.env
+  project    = var.project
+  phase      = var.phase
+  aws_region = var.aws_region
+
+  deal_expiry_lambda_arn  = module.lambda.deal_expiry_lambda_arn
+  deal_expiry_lambda_name = module.lambda.deal_expiry_lambda_name
+}
+
+# -------------------------------------------------------------------
+# Amplify — Next.js 14 (App Router / SSR) hosted frontend
+# GitHub repo: https://github.com/sr0626/restaurant-platform
+# -------------------------------------------------------------------
+module "amplify" {
+  source = "./modules/amplify"
+
+  env     = var.env
+  project = var.project
+  phase   = var.phase
+
+  github_repo_url     = var.github_repo_url
+  github_access_token = var.github_access_token
+
+  api_gateway_url      = module.lambda.api_gateway_url
+  cognito_user_pool_id = module.cognito.user_pool_id
+  cognito_client_id    = module.cognito.client_id
+  cloudfront_url       = "https://${module.s3.cloudfront_domain}"
+}
