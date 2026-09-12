@@ -1,0 +1,138 @@
+# -------------------------------------------------------------------
+# GitHub Actions OIDC role — DevOps's CI/CD pipeline (see devops/CLAUDE.md
+# "Key Patterns", `role-to-assume: ${{ secrets.DEV_DEPLOY_ROLE_ARN }}`).
+# Scoped to exactly two things per devops/CLAUDE.md "NEVER — give the
+# pipeline's IAM role permissions beyond what it needs": ECR push/pull on
+# the one backend repo (module.ecr) and lambda:UpdateFunctionCode on the one
+# API function. Nothing account-wide, no static keys (OIDC only).
+# -------------------------------------------------------------------
+
+# One GitHub OIDC provider per AWS account, shared by any workflow in this
+# account that assumes a role via OIDC. Checked: no existing
+# aws_iam_openid_connect_provider anywhere in this codebase, so it's created
+# here rather than assumed to pre-exist.
+resource "aws_iam_openid_connect_provider" "github_actions" {
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+
+  # GitHub's documented root CA thumbprint. AWS now validates the token
+  # against its own trusted CA bundle for OIDC-compliant providers like
+  # GitHub's rather than actually checking this value, but the field is
+  # still required by the aws_iam_openid_connect_provider resource schema
+  # on AWS provider ~> 5.0 (pinned in backend.tf), so it's supplied for
+  # schema validity.
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+
+  tags = local.common_tags
+}
+
+locals {
+  # var.github_repo_url is "https://github.com/<org>/<repo>" — the same
+  # value already used by the amplify module for its own repo reference.
+  # Reused here (rather than adding a second variable for the same repo) to
+  # derive the "<org>/<repo>" slug the OIDC sub claim needs.
+  github_repo_slug = trimprefix(var.github_repo_url, "https://github.com/")
+
+  # Constructed from the known naming convention (same technique this module
+  # already uses for the CloudWatch log group ARNs above) instead of taking
+  # module.lambda's output directly — module.lambda already depends on this
+  # iam module for its execution role ARNs, so depending back on
+  # module.lambda.api_lambda_arn here would create a circular module
+  # dependency. The ECR repo ARN has no such cycle (module.ecr depends on
+  # nothing), so that one is passed in as a real variable instead.
+  api_lambda_arn = "arn:aws:lambda:${var.aws_region}:${var.account_id}:function:${var.project}-api-${var.env}"
+}
+
+# -------------------------------------------------------------------
+# Trust policy — restricts to THIS repo, THIS branch, nothing else.
+#
+# JUDGMENT CALL (flag for review): scoped to the sub claim
+# `repo:<org>/<repo>:ref:refs/heads/main`, matching devops/CLAUDE.md's
+# `deploy-backend.yml`, which only triggers on `push: branches: [main]` — no
+# other workflow needs this role today. This is intentionally tighter than
+# the common `repo:<org>/<repo>:*` pattern (which would let any branch, PR,
+# or environment in the repo assume the role). Tradeoff: if DevOps adds a
+# second workflow that needs to assume this role from a non-main ref (e.g. a
+# PR-preview build), this condition has to widen then — not pre-opened now
+# for a need that doesn't exist yet.
+# -------------------------------------------------------------------
+data "aws_iam_policy_document" "github_actions_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github_actions.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${local.github_repo_slug}:ref:refs/heads/main"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_actions_deploy" {
+  name               = "${var.project}-github-actions-deploy-${var.env}"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_trust.json
+
+  tags = local.common_tags
+}
+
+# -------------------------------------------------------------------
+# Permissions — ECR push/pull on the one backend repo,
+# lambda:UpdateFunctionCode on the one API function. No account-wide access.
+#
+# JUDGMENT CALL (flag for review): `ecr:GetAuthorizationToken` is granted
+# with `Resource = "*"` in its own statement. This is a deliberate, narrow
+# exception to the "never Resource *" guardrail, not an oversight —
+# GetAuthorizationToken is an account-level ECR API with no resource-level
+# permission support at all (every AWS-documented ECR push/pull policy
+# grants it this way); there is no repo ARN to scope it to. Every other
+# action below is scoped to the single ECR repo ARN or the single Lambda
+# function ARN.
+# -------------------------------------------------------------------
+resource "aws_iam_role_policy" "github_actions_deploy" {
+  name = "${var.project}-github-actions-deploy-policy-${var.env}"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "EcrAuthToken"
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      },
+      {
+        Sid    = "EcrPushPullOwnRepo"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage",
+        ]
+        Resource = var.ecr_repository_arn
+      },
+      {
+        Sid      = "LambdaUpdateOwnFunctionCode"
+        Effect   = "Allow"
+        Action   = ["lambda:UpdateFunctionCode"]
+        Resource = local.api_lambda_arn
+      }
+    ]
+  })
+}

@@ -11,20 +11,12 @@ locals {
 }
 
 # -------------------------------------------------------------------
-# Placeholder zips — replaced by CI/CD pipeline after initial provision.
+# Placeholder zip — deal-expiry Lambda only. The API Lambda moved to a
+# container image (see DECISIONS.md "Containerization") and no longer uses
+# archive_file; this placeholder is unaffected and still zip-based.
 # lifecycle.ignore_changes ensures Terraform does not overwrite code
 # that CI/CD has deployed.
 # -------------------------------------------------------------------
-data "archive_file" "api_placeholder" {
-  type        = "zip"
-  output_path = "/tmp/${var.project}-api-placeholder.zip"
-
-  source {
-    content  = "def handler(event, context): return {'statusCode': 200, 'body': 'placeholder'}\n"
-    filename = "placeholder.py"
-  }
-}
-
 data "archive_file" "deal_expiry_placeholder" {
   type        = "zip"
   output_path = "/tmp/${var.project}-deal-expiry-placeholder.zip"
@@ -54,17 +46,31 @@ resource "aws_cloudwatch_log_group" "deal_expiry" {
 }
 
 # -------------------------------------------------------------------
-# API Lambda — FastAPI via Mangum handler
+# API Lambda — FastAPI via Mangum handler, container image (see
+# DECISIONS.md "Containerization: Lambda container images via ECR" and
+# infra/CLAUDE.md "Lambda + API Gateway (container image, not zip)").
+# No "runtime" or "handler" with package_type = "Image" — the Dockerfile's
+# CMD/ENTRYPOINT (Mangum-wrapped FastAPI app) is the handler.
+#
+# `image_uri` bootstrap/CI-drift note: on the very first apply there is no
+# image in ECR yet for var.lambda_image_uri to point to (Lambda validates the
+# image exists at create time), so a human must push one placeholder image to
+# the ECR repo's `:bootstrap` tag before that first apply — see the comment
+# on `lambda_image_uri` in variables.tf and on `module "ecr"` /
+# `module "lambda"` in the root main.tf for the exact reasoning. After that,
+# DevOps's pipeline moves the running image forward via
+# `aws lambda update-function-code` (devops/CLAUDE.md), never through
+# Terraform — `lifecycle.ignore_changes` below is what keeps `terraform plan`
+# from trying to revert those deploys back to the Terraform-declared value,
+# same pattern this module already used for the old zip's filename/hash.
 # -------------------------------------------------------------------
 resource "aws_lambda_function" "api" {
-  function_name    = local.api_function_name
-  runtime          = "python3.12"
-  handler          = "app.main.handler"
-  role             = var.api_lambda_role_arn
-  filename         = data.archive_file.api_placeholder.output_path
-  source_code_hash = data.archive_file.api_placeholder.output_base64sha256
-  timeout          = 30
-  memory_size      = 512
+  function_name = local.api_function_name
+  package_type  = "Image"
+  image_uri     = var.lambda_image_uri
+  role          = var.api_lambda_role_arn
+  timeout       = 30
+  memory_size   = 512
 
   vpc_config {
     subnet_ids         = var.subnet_ids
@@ -83,7 +89,7 @@ resource "aws_lambda_function" "api" {
   depends_on = [aws_cloudwatch_log_group.api]
 
   lifecycle {
-    ignore_changes = [filename, source_code_hash]
+    ignore_changes = [image_uri]
   }
 
   tags = local.common_tags

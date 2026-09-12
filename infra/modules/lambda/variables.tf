@@ -40,6 +40,26 @@ variable "api_lambda_role_arn" {
   type        = string
 }
 
+variable "lambda_image_uri" {
+  description = <<-EOT
+    Full ECR image URI for the API Lambda's container image
+    (<repository_url>:<tag> or <repository_url>@<digest>).
+
+    Terraform/CI-CD boundary: DevOps's pipeline is what moves this forward in
+    the running Lambda on every merge to main, via `aws lambda
+    update-function-code` (devops/CLAUDE.md) — not by re-running `terraform
+    apply` with a new value here. `aws_lambda_function.api` has
+    `lifecycle.ignore_changes = [image_uri]` so a stale value passed into
+    this variable never fights DevOps's deploys on a later `terraform plan`.
+    This variable's value only matters the first time the function is
+    created, before which the referenced image must already exist in ECR
+    (the root module defaults it to the ECR repo's `:bootstrap` tag — see
+    the root `main.tf` comment on `module "lambda"` for the one-time manual
+    push this requires before the very first apply).
+  EOT
+  type        = string
+}
+
 variable "deal_expiry_lambda_role_arn" {
   description = "IAM execution role ARN for the deal-expiry Lambda"
   type        = string

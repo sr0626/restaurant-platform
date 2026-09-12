@@ -48,3 +48,18 @@ output "api_lambda_role_arn" {
   description = "IAM execution role ARN for API Lambda"
   value       = module.iam.api_lambda_role_arn
 }
+
+output "ecr_repository_url" {
+  description = "ECR repository URL for the backend API image (docker push target)"
+  value       = module.ecr.repository_url
+}
+
+output "ecr_repository_arn" {
+  description = "ECR repository ARN for the backend API image"
+  value       = module.ecr.repository_arn
+}
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN DevOps's GitHub Actions pipeline assumes via OIDC — set this as the GitHub repo secret DEV_DEPLOY_ROLE_ARN referenced in devops/CLAUDE.md's deploy-backend.yml"
+  value       = module.iam.github_actions_role_arn
+}
