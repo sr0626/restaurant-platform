@@ -120,6 +120,12 @@ silently rev the doc.
 - ALWAYS check `docs/DECISIONS.md` before designing something that looks like
   a product decision (pricing shape, feature gating) rather than a pure schema
   question — if it's not already decided there, ask before deciding it yourself
+- ALWAYS decide confidently on pure schema/design judgment calls (naming,
+  cascade behavior, index choice) rather than blocking to ask — report the
+  decision and reasoning so it can be reviewed after the fact, per root
+  `CLAUDE.md` "Decision-Making Autonomy." Reserve actual questions for the
+  DECISIONS.md-gap case above and the triggers in root `CLAUDE.md` "Ask
+  Human When."
 - ALWAYS design for least-privilege data access (see root `CLAUDE.md` "AWS
   Best Practices") — don't design a schema/access pattern that assumes a
   single broad-permission DB role; keep row-level access checks (manager →
