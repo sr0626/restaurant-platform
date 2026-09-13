@@ -8,18 +8,23 @@ that exist: the `dev` account itself, the Terraform state S3 bucket +
 DynamoDB lock table. `terraform apply` has never been run.
 
 ## Open PRs
-- None — all merged through #14 (see DECISIONS.md for what each did)
+- None — all merged through #23 (see DECISIONS.md for what each did)
 
 ## Architect (schema + contracts)
 - [x] 13 entities modeled, 2 migrations written (never run)
 - [x] DATA_MODEL.md + API_CONTRACTS.md cover all Phase 1 endpoints
-- [x] Location-manager contract, id/slug restaurant lookup contract — implemented + tests green (92/3/0)
+- [x] Location-manager contract, id/slug restaurant lookup contract — implemented + tests green
+- [x] `GET /restaurants` (owner-scoped list) and `GET /cuisine-tags` (public)
+      contracts written — implemented + tests green
+- [x] Phase 1 completion plan produced (priority order + agent ownership for
+      remaining pages: login, claim flow, admin claims queue, owner portal)
 
 ## Backend (FastAPI)
-- [x] `/search`, `/restaurants` CRUD, `/restaurants/{id}/locations`
+- [x] `/search`, `/restaurants` CRUD + owner-scoped list, `/restaurants/{id}/locations`
 - [x] `/locations` CRUD + hours + photos sub-resource
 - [x] `/locations/{id}/managers` (assign/list/remove)
 - [x] `/claim` (submit/approve/reject), `/auth/me`
+- [x] `/cuisine-tags` (public read list)
 - [ ] Menu, deals, Stripe — Phase 2, not started (correctly)
 - Container image built (Dockerfile), never pushed to ECR (no ECR repo exists yet)
 
@@ -56,8 +61,16 @@ DynamoDB lock table. `terraform apply` has never been run.
 - [ ] Never run — no OIDC role deployed, no ECR repo, `DEV_DEPLOY_ROLE_ARN` secret not set
 
 ## QA / Tests
-- [x] 94 passing, 3 skipped (need real Postgres), 0 failing — verified independently three times, incl. new slug-lookup coverage
+- [x] 109 passing, 3 skipped (need real Postgres), 0 failing — includes new
+      owner-scoped-list security tests and cuisine-tags coverage
+- [ ] Playwright e2e suite not started — waiting on login/claim/owner-portal
+      pages to exist (per Architect's Phase 1 plan)
 
-## Blocking next steps
-1. Style the remaining page (login)
-2. `terraform apply` (human-run) — nothing goes live until this happens
+## Blocking next steps (Architect's Phase 1 plan, in priority order)
+1. Login flow — real Cognito wiring (currently a bare placeholder)
+2. Claim flow UI + admin claims review queue (built together — one is
+   useless to demo without the other)
+3. Owner/manager location editor + owner dashboard (backend now unblocked —
+   `GET /restaurants` owner-scoped list landed)
+4. `terraform apply` (human-run) — nothing goes live until this happens;
+   not a blocker for any of 1–3, which are all buildable/testable locally
