@@ -589,6 +589,39 @@ Owner adds new location during free period — it gets the benefit too.
 
 ## Features & Product
 
+**Homepage/search visual direction: "Spice Market" — warm saffron/chili palette, Space Grotesk + Manrope, tokenized theme**
+2026-09-13 | User decision, picked from a 12-option design canvas (originally
+5, expanded to 12 after two rounds of "these look old/simple" and "give me
+more, think like a senior designer" feedback):
+https://claude.ai/code/artifact/a8638b8c-fdfa-4e44-9f4d-d75ee61b8f96 — kept
+private and updatable, so the other 11 unchosen directions (Neon Thali,
+Modern Masala, Street Food Pop, Emerald Feast, Paisley Pastel, Photo Bloom,
+Monochrome Editorial, Terracotta Bazaar, Citrus Pop, Ink & Spice, Sunset
+Thali) stay available on the same canvas for later reference or an A/B
+alternate (user's runner-up pick was "Citrus Pop"). Palette/type is
+specified in `frontend/tailwind.config.ts` and `frontend/src/app/globals.css`
+as named tokens (see "Tokenized theming" decision below) rather than in
+this log, so implementation stays the single source of truth.
+*Rejected: Citrus Pop (bolder/younger but more polarizing — good A/B
+candidate later), Neon Thali and the other 10 (each explored a genuinely
+different axis per user's "senior designer" ask, but Spice Market was judged
+the best fit for a general-audience discovery platform: appetizing, credible,
+still visually energetic)*
+
+**Frontend theme is tokenized (Tailwind `theme.extend` + CSS custom properties), never hardcoded hex/fonts in components — standing rule**
+2026-09-13 | User decision, given alongside picking the homepage direction:
+"keep the frontend design such that it's easy to change the L&F in future."
+Every color, font, radius, and shadow from the chosen direction is defined
+once as a named token (e.g. `brand.accent`, `brand.ink`, `brand.bg`,
+`font.display`, `font.body`) in `frontend/tailwind.config.ts` /
+`globals.css`; components reference tokens (`bg-brand-accent`,
+`font-display`) — never a literal hex or font-family string. Swapping to
+another direction later (Citrus Pop, or a future rebrand) is then a
+token-file edit, not a component-by-component rewrite.
+*Rejected: hardcoding the picked palette directly in JSX/CSS per component
+(fastest short-term, but exactly what the user asked to avoid — makes any
+future look-and-feel change touch every component instead of one file)*
+
 **Full menu with prices moved to free tier; dish photos split out as the paid feature (BRD 3.3)**
 2026-09-12 | The combined "Full menu with prices and dish photos" row (paid-only)
 is split into two: seeing the full menu with prices is now free for every
