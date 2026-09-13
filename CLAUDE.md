@@ -176,6 +176,26 @@ Every agent, every task, follows this flow — codified per-agent in each
 6. **The human manually approves and merges. No agent ever merges a PR —
    its own or anyone else's — under any circumstance.**
 
+### Merge Hygiene (standing rule, added 2026-09-13)
+Don't make the human review and merge a PR for every trivial doc-only
+change. A `docs/CMD_LOG.md` entry or a one-line `docs/STATUS.md` bump is
+not, on its own, significant work — it's bookkeeping:
+- **Fold it into whatever substantive PR it's already related to.** If
+  you're logging a push that's part of a feature/fix/infra PR, add that
+  log line as another commit on that same branch, not a separate PR.
+- **When there's no substantive PR to attach to** (e.g. logging a push
+  that already landed), batch several small log/status updates together
+  into one PR rather than opening one per line — it's fine for a doc-only
+  PR to lag behind by a few entries and catch up in one shot.
+- This doesn't relax the underlying rules — every push and AWS command
+  still gets logged (see "ALWAYS — Command Log"), `docs/STATUS.md` still
+  gets updated when state changes (see "ALWAYS — Documentation") — it
+  just changes *when* those edits become their own PR versus riding along
+  with something else. Reserve a standalone PR (and the human's merge
+  attention) for changes that are actually worth reviewing on their own:
+  a feature, a fix, a schema/contract change, a real process/decision
+  change — not routine bookkeeping.
+
 ## Universal Guardrails (apply to ALL agents)
 
 ### NEVER — Cost

@@ -10,6 +10,24 @@ Format: **Decision** | Date | Reasoning | Alternatives Rejected
 
 ## Process & Documentation
 
+**Trivial doc-only bookkeeping (CMD_LOG entries, STATUS.md bumps) rides along on an existing PR or batches up — doesn't need its own standalone PR every time**
+2026-09-13 | User decision, given after a run of single-line PRs (a
+CMD_LOG.md entry logging one push, a one-line STATUS.md tweak) each showed
+up as something to review and merge. The human's merge attention should go
+to actually-significant work — features, fixes, schema/contract changes,
+real process/decision changes — not routine logging. New guidance: fold a
+log/status edit into whatever substantive branch it's already related to as
+another commit, and when there's no such branch, batch several small
+edits into one catch-up PR instead of opening one per line. Every push and
+AWS command is still logged and `docs/STATUS.md` still gets updated on
+state changes — this only changes when that edit becomes its own PR versus
+riding along with other work. Codified in root `CLAUDE.md` ("Git Workflow"
+→ "Merge Hygiene").
+*Rejected: stopping the logging/status-update practice itself (still
+useful, was never the complaint — the complaint was PR-per-line, not the
+content), letting agents merge trivial PRs themselves to skip the friction
+(violates the "no agent ever merges" hard gate — not up for relaxing)*
+
 **`docs/STATUS.md` — a live, bullet-only project status doc, updated on every PR merge/feature change**
 2026-09-13 | User wants an always-current snapshot of what's implemented per
 layer, separate from this decision log. Kept short (bullets, no prose) per
