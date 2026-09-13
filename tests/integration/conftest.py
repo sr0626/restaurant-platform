@@ -41,6 +41,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.schema import CreateIndex
 
 import app.main as app_main
 from app.db.base import Base
@@ -84,6 +85,46 @@ def _compile_jsonb_as_json_on_sqlite(type_, compiler, **kw):  # pragma: no cover
 @compiles(BigInteger, "sqlite")
 def _compile_biginteger_as_integer_on_sqlite(type_, compiler, **kw):  # pragma: no cover - DDL glue
     return "INTEGER"
+
+
+# The schema has three partial unique indexes (postgresql_where=...):
+# `restaurant_photo.uq_restaurant_photo_one_cover_per_location`,
+# `location_manager.uq_location_manager_active_user`,
+# `claim_request.uq_claim_request_pending_brand`. SQLAlchemy silently drops
+# dialect-specific DDL kwargs (postgresql_where included) when compiling for
+# a different dialect — so on SQLite these would otherwise become PLAIN
+# (unconditional) unique indexes. That's actively wrong in both directions,
+# not just "slightly less strict than Postgres": e.g. `restaurant_photo`
+# would allow at most ONE row per location TOTAL (not one *cover* photo),
+# breaking any test with more than one gallery photo per location; and
+# `claim_service.create_claim` relies entirely on catching the DB's
+# IntegrityError to detect a duplicate PENDING claim (no separate
+# application-level pre-check) — dropping the index's WHERE entirely (an
+# earlier version of this shim did that) silently removed the constraint,
+# so a duplicate claim for an already-*resolved* brand would incorrectly
+# still 409 on Postgres... no: the opposite direction (no constraint at all
+# on SQLite) let a duplicate PENDING claim through with 201, which is wrong.
+#
+# SQLite has supported partial indexes (`CREATE INDEX ... WHERE ...`) since
+# 3.8.0 (2015) — the same feature Postgres has, just expressed through a
+# different SQLAlchemy dialect kwarg. So the faithful fix is to translate
+# `postgresql_where`'s condition into a real SQLite partial index, not to
+# drop it or leave it plain. This preserves the exact intended semantics
+# (unique only among matching rows) on both dialects.
+@compiles(CreateIndex, "sqlite")
+def _translate_postgres_partial_index_to_sqlite(create, compiler, **kw):  # pragma: no cover - DDL glue
+    index = create.element
+    pg_where = index.dialect_options.get("postgresql", {}).get("where")
+    if pg_where is None:
+        return compiler.visit_create_index(create, **kw)
+
+    preparer = compiler.preparer
+    table_name = preparer.format_table(index.table)
+    index_name = preparer.quote(index.name)
+    columns = ", ".join(preparer.quote(col.name) for col in index.columns)
+    unique = "UNIQUE " if index.unique else ""
+    where_sql = compiler.sql_compiler.process(pg_where, literal_binds=True)
+    return f"CREATE {unique}INDEX {index_name} ON {table_name} ({columns}) WHERE {where_sql}"
 
 
 @pytest_asyncio.fixture
