@@ -33,11 +33,21 @@ async def get_cover_photo(db: AsyncSession, location_id: int) -> RestaurantPhoto
     return result.scalar_one_or_none()
 
 
-async def get_gallery_photos(db: AsyncSession, location_id: int) -> list[RestaurantPhoto]:
+async def get_gallery_photos(
+    db: AsyncSession, location_id: int, is_paid: bool
+) -> list[RestaurantPhoto]:
+    """Read-time enforcement of the same 2-free/10-paid cap `create_photo`/
+    `update_photo` enforce on write — a downgraded (is_paid=false) location
+    must stop returning photos beyond the free limit immediately, per root
+    CLAUDE.md's paid-content rule and DECISIONS.md's immediate-downgrade
+    rule, even if it uploaded up to the paid limit while still paid.
+    """
+    limit = gallery_limit_for(is_paid)
     result = await db.execute(
         select(RestaurantPhoto)
         .where(RestaurantPhoto.location_id == location_id, RestaurantPhoto.is_cover == False)  # noqa: E712
         .order_by(RestaurantPhoto.display_order)
+        .limit(limit)
     )
     return list(result.scalars().all())
 

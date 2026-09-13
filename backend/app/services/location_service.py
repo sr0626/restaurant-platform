@@ -50,7 +50,7 @@ async def _location_to_out(db: AsyncSession, location: RestaurantLocation) -> Lo
     is_open_now = hours_service.compute_is_open_now(hours_by_day.get(today), location.timezone)
 
     cover = await photo_service.get_cover_photo(db, location.id)
-    gallery = await photo_service.get_gallery_photos(db, location.id)
+    gallery = await photo_service.get_gallery_photos(db, location.id, location.is_paid)
 
     return LocationOut(
         id=location.id,
