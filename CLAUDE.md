@@ -137,7 +137,7 @@ Every write request must be validated server-side:
 - Commit messages: `feat:`, `fix:`, `test:`, `infra:`, `docs:`
 - No commits directly to `main`
 
-### Git Workflow (standing rule, added 2026-09-12 — no exceptions)
+### Git Workflow (standing rule, added 2026-09-12, push gate relaxed 2026-09-13 — no exceptions otherwise)
 Every agent, every task, follows this flow — codified per-agent in each
 `CLAUDE.md`'s guardrails too:
 1. **Create a feature branch before making any change.** Prefix matches the
@@ -145,10 +145,10 @@ Every agent, every task, follows this flow — codified per-agent in each
    write directly on `main`.
 2. Commit to that branch as work progresses (commit freely — no permission
    needed for a local commit on a feature branch, same as always).
-3. **Pushing the branch and opening the PR both require the same per-action
-   explicit permission as any `git push`** (see "NEVER — Session Control"
-   below) — this didn't change, it now also covers feature branches, not
-   just `main`.
+3. **Pushing a feature branch and opening its PR (`gh pr create`) do NOT
+   need per-action human approval** (changed 2026-09-13 — see "NEVER —
+   Session Control" below). Direct push to `main` remains forbidden
+   (and blocked by branch protection regardless).
 4. Open the PR against `main` (`gh pr create`) once pushed.
 5. **The Architect agent reviews every PR — schema, backend, frontend,
    infra, devops, tests alike — and adds review comments.** Architect
@@ -196,12 +196,14 @@ indirectly and must follow the same principles:
 - NEVER delete or truncate any DB table or S3 bucket
 - NEVER modify files outside your designated directory without explicit instruction
 
-### NEVER — Session Control (no exceptions, standing rule)
-- NEVER run `git push` on your own authority, even if a previous push in this
-  session was approved. Every push needs its own explicit go-ahead from the
-  human — either they type the command themselves, or they say yes to this
-  specific push. Approving one push does not carry over to the next. Applies
-  to feature-branch pushes and `gh pr create` exactly the same as `main`.
+### NEVER — Session Control (no exceptions except where noted, standing rule)
+- **Feature-branch `git push` and `gh pr create` do NOT need per-action
+  human approval** (changed 2026-09-13 — user decision, see
+  `docs/DECISIONS.md`). Push and open the PR as part of finishing the work;
+  the human's checkpoint is now the PR merge, after Architect review, not
+  the push.
+- NEVER push directly to `main`, under any circumstance — always go through
+  a feature branch and a PR (also blocked by branch protection).
 - NEVER work directly on `main` — create a feature branch first, every task,
   no exceptions (see "Git Workflow" above).
 - NEVER merge a pull request — yours or another agent's — for any reason.
@@ -212,13 +214,17 @@ indirectly and must follow the same principles:
   read-only-seeming commands (`aws s3 ls`, `aws sts get-caller-identity`) —
   ask first regardless. No standing approval accumulates across a session.
 - NEVER let a `git push` or an AWS CLI/SDK command go unlogged — see the
-  "ALWAYS — Command Log" rule below, no exceptions.
+  "ALWAYS — Command Log" rule below, no exceptions. This still applies even
+  though feature-branch pushes no longer need pre-approval — log after the
+  fact, same as before.
 
 ### ALWAYS — Command Log (no exceptions, standing rule)
 - ALWAYS record every `git push`, every AWS CLI/SDK command, and every
   `terraform plan`/`apply` in `docs/CMD_LOG.md` — grouped by date, in
   execution order, tagged `# user` or `# claude`. Keep it to just the
-  command list, no description or explanation.
+  command list, no description or explanation. Unchanged by the 2026-09-13
+  push-approval relaxation — every push still gets logged, it just no
+  longer needs a pre-approval before it happens.
 
 ### ALWAYS — Quality
 - ALWAYS write a test alongside every new endpoint, component, or Lambda

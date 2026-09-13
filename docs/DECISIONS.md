@@ -10,6 +10,24 @@ Format: **Decision** | Date | Reasoning | Alternatives Rejected
 
 ## Process & Documentation
 
+**Feature-branch `git push` and `gh pr create` no longer need per-action human approval — standing rule**
+2026-09-13 | User decision, given after a session of pushing ~8 PRs one
+approval-prompt at a time. The pre-push approval gate added most of its
+friction without adding much safety: nothing reaches `main` without
+Architect review plus the human's own merge approval anyway, and `main`
+itself is branch-protected against direct pushes regardless of who tries.
+New flow: agents commit, push, and open the PR against `main` as part of
+finishing a task, without asking first; `docs/CMD_LOG.md` still logs every
+push after the fact (unchanged); Architect still reviews every PR before it
+reaches the human; the human's checkpoint moves from "approve the push" to
+"approve the merge." Direct push to `main`, agent-merging a PR, and every
+AWS CLI/SDK command remain hard-gated exactly as before — this decision
+touches feature-branch git push/PR-open only.
+*Rejected: leaving the pre-push gate in place (pure friction once Architect
+review + human merge already gate what lands on `main`), relaxing the AWS
+command gate too (not requested — AWS commands have real-money and
+real-infrastructure consequences a git push doesn't)*
+
 **Architect and the orchestrator decide judgment calls themselves and report the plan — standing rule**
 2026-09-12 | User decision: don't stop mid-task to ask about ambiguous
 design/schema/process questions with a reasonable answer (field naming, a
