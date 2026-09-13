@@ -25,10 +25,18 @@ DynamoDB lock table. `terraform apply` has never been run.
 
 ## Frontend (Next.js)
 - [x] Project scaffold, typed API client, auth helpers, route skeleton
-- [x] Homepage direction picked: "Spice Market" (see DECISIONS.md) — tokenized
-      theme (Tailwind + CSS vars), homepage build in progress
-- [ ] Search page and rest of the app still unstyled placeholders
-- `npm install` never run — versions unverified
+- [x] Homepage built and merged: "Spice Market" direction, fully tokenized
+      theme (Tailwind `brand.*` colors/fonts/radii/shadows — no hardcoded
+      hex/fonts in components, so a future L&F change is a values-only edit)
+- [x] Homepage wired to the real `/search` API client with graceful
+      empty/error states — no fabricated restaurant data
+- [ ] Search page and login page still unstyled placeholders
+- [ ] **Known bug (repo-wide, pre-existing): `next build`/`next lint` don't
+      run at all** — `next.config.ts` needs Next 15, pinned version is
+      14.2.18. Fix suggested as a follow-up task, not yet started.
+- `npm install` still unverified against the project's own npm registry
+  (sandbox network issue) — verified once against the public registry as a
+  one-off; `@aws-amplify/auth@6.6.5` pin doesn't exist there (needs a look)
 
 ## Infra (Terraform)
 - [x] Modules written: aurora, ecr, lambda, cognito, s3, amplify, ses (deferred), eventbridge, iam, networking
@@ -43,5 +51,7 @@ DynamoDB lock table. `terraform apply` has never been run.
 - [x] 94 passing, 3 skipped (need real Postgres), 0 failing — verified independently three times, incl. new slug-lookup coverage
 
 ## Blocking next steps
-1. Land the Spice Market homepage build (Frontend Dev in progress)
-2. `terraform apply` (human-run) — nothing goes live until this happens
+1. Fix the `next.config.ts`/Next 14 incompatibility so the frontend can
+   actually build (queued as a follow-up task)
+2. Style the remaining pages (search, login)
+3. `terraform apply` (human-run) — nothing goes live until this happens
