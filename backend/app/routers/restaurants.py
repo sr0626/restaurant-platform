@@ -23,9 +23,11 @@ from app.services import location_service, restaurant_service
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
 
 
-@router.get("/{brand_id}", response_model=RestaurantOut)
-async def get_restaurant(brand_id: int, db: AsyncSession = Depends(get_db)) -> RestaurantOut:
-    return await restaurant_service.get_restaurant(db, brand_id)
+@router.get("/{id_or_slug}", response_model=RestaurantOut)
+async def get_restaurant(id_or_slug: str, db: AsyncSession = Depends(get_db)) -> RestaurantOut:
+    """`id_or_slug` may be the numeric `restaurant_brand.id` or its `slug`
+    (docs/API_CONTRACTS.md "GET /restaurants/{id}")."""
+    return await restaurant_service.get_restaurant(db, id_or_slug)
 
 
 @router.get("/{brand_id}/locations", response_model=LocationListResponse)

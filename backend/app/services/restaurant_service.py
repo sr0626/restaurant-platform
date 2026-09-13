@@ -54,8 +54,16 @@ async def _brand_to_out(db: AsyncSession, brand: RestaurantBrand) -> RestaurantO
     )
 
 
-async def get_restaurant(db: AsyncSession, brand_id: int) -> RestaurantOut:
-    brand = await db.get(RestaurantBrand, brand_id)
+async def get_restaurant(db: AsyncSession, id_or_slug: str) -> RestaurantOut:
+    """`id_or_slug` resolves either the numeric `restaurant_brand.id` or its
+    `slug` (docs/API_CONTRACTS.md "GET /restaurants/{id}"): all-digits ->
+    id lookup, otherwise -> slug lookup.
+    """
+    if id_or_slug.isdigit():
+        brand = await db.get(RestaurantBrand, int(id_or_slug))
+    else:
+        result = await db.execute(select(RestaurantBrand).where(RestaurantBrand.slug == id_or_slug))
+        brand = result.scalar_one_or_none()
     if brand is None:
         raise AppError(404, "Restaurant not found", "not_found")
     return await _brand_to_out(db, brand)
@@ -106,7 +114,7 @@ async def create_restaurant(db: AsyncSession, body: RestaurantCreate, current_us
         await db.rollback()
         raise AppError(409, "A restaurant with a conflicting slug already exists", "slug_conflict")
 
-    return await get_restaurant(db, brand.id)
+    return await _brand_to_out(db, brand)
 
 
 async def update_restaurant(
@@ -136,7 +144,7 @@ async def update_restaurant(
         new_val=new_val,
     )
     await db.commit()
-    return await get_restaurant(db, brand.id)
+    return await _brand_to_out(db, brand)
 
 
 async def delete_restaurant(db: AsyncSession, brand_id: int, current_user) -> None:
