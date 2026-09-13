@@ -8,7 +8,7 @@ that exist: the `dev` account itself, the Terraform state S3 bucket +
 DynamoDB lock table. `terraform apply` has never been run.
 
 ## Open PRs
-- #7 backend API + location-manager routes + tests — id/slug fix pushed (commit 1af489d), Architect re-verifying
+- #7 backend API + location-manager routes + tests — Architect approved, ready to merge (94 passed/3 skipped/0 failed)
 - #8 frontend scaffold — Architect approved
 - #9 infra service_name + state key — Architect approved
 - #10 infra Cognito ListUsers grant — Architect approved
@@ -45,9 +45,11 @@ DynamoDB lock table. `terraform apply` has never been run.
 - [ ] Never run — no OIDC role deployed, no ECR repo, `DEV_DEPLOY_ROLE_ARN` secret not set
 
 ## QA / Tests
-- [x] 92 passing, 3 skipped (need real Postgres), 0 failing — verified independently twice
+- [x] 94 passing, 3 skipped (need real Postgres), 0 failing — verified independently three times, incl. new slug-lookup coverage
 
 ## Blocking next steps
-1. Merge the open PRs
+1. Merge the open PRs — all 8 (#6–#13) now have an explicit Architect
+   verdict or are self-authored docs; merge #12 (id/slug contract doc)
+   alongside or before #7 so `main` never carries the code without the doc
 2. Pick a homepage design direction
 3. `terraform apply` (human-run) — nothing goes live until this happens
