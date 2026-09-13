@@ -15,6 +15,22 @@ variable "phase" {
   default     = "phase1"
 }
 
+variable "service_name" {
+  description = <<-EOT
+    Service identifier for the API-style Lambda this GitHub Actions deploy
+    role is scoped to (github_actions.tf's local.api_lambda_arn), matching
+    the same var.service_name passed to module "ecr" / module "lambda" for
+    this service. Defaults to "api" so the existing single-service call site
+    is unaffected. See DECISIONS.md "Multi-service scaling". A second
+    service's deploy role/policy would be added as new resources in this
+    module (the GitHub OIDC provider is an account-level singleton, so this
+    module is not copy-pasted per service the way ecr/lambda are) — not
+    handled by this variable alone.
+  EOT
+  type        = string
+  default     = "api"
+}
+
 variable "aws_region" {
   description = "AWS region — used to construct ARNs in IAM policy documents"
   type        = string

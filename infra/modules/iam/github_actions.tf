@@ -40,7 +40,12 @@ locals {
   # module.lambda.api_lambda_arn here would create a circular module
   # dependency. The ECR repo ARN has no such cycle (module.ecr depends on
   # nothing), so that one is passed in as a real variable instead.
-  api_lambda_arn = "arn:aws:lambda:${var.aws_region}:${var.account_id}:function:${var.project}-api-${var.env}"
+  #
+  # Parameterized on var.service_name (default "api", matching module.ecr /
+  # module.lambda's own default) so this ARN stays correct if the root
+  # module's service_name for this Lambda ever changes — see DECISIONS.md
+  # "Multi-service scaling".
+  api_lambda_arn = "arn:aws:lambda:${var.aws_region}:${var.account_id}:function:${var.project}-${var.service_name}-${var.env}"
 }
 
 # -------------------------------------------------------------------
