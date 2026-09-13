@@ -8,20 +8,26 @@
 // Route Handlers, and Server Actions (not Client Components) — that's the
 // same boundary the auth-gated portal pattern relies on.
 //
-// JUDGMENT CALL (flagged in final report): the actual sign-in exchange that
-// sets this cookie (Cognito Hosted UI / SDK code exchange -> Set-Cookie) is
-// not built in this task — only the read side. `aws-jwt-verify` is added
-// as a new dependency for server-side JWT verification; it's the
-// standard lightweight library for this and pairs with the
-// `@aws-amplify/auth` / `amazon-cognito-identity-js` client-side flow
-// frontend/CLAUDE.md's Stack section already calls for.
+// The sign-in exchange that sets this cookie is now built: the client-side
+// form (components/auth/LoginForm.tsx) authenticates against Cognito
+// directly via @aws-amplify/auth, then POSTs the resulting access token to
+// app/api/auth/session/route.ts, which calls `resolveSession()` below to
+// verify it with the same aws-jwt-verify logic `getServerSession()` uses,
+// before trusting it enough to set as the httpOnly cookie.
 import { cookies } from "next/headers";
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import { assertCognitoConfig } from "./config";
 import type { Session, UserRole } from "@/types/auth";
 
-/** Set by the (not-yet-built) sign-in flow once Cognito issues tokens. */
+/** Set by the sign-in flow (app/api/auth/session/route.ts) once Cognito issues tokens. */
 export const SESSION_COOKIE_NAME = "rp_access_token";
+
+/**
+ * Matches the Cognito access token TTL (docs/DECISIONS.md "Manager
+ * permissions validated server-side on every write" — "JWT TTL is 15
+ * minutes"). The session cookie must never outlive the token it carries.
+ */
+export const SESSION_MAX_AGE_SECONDS = 15 * 60;
 
 const ROLES: readonly UserRole[] = [
   "owner",
@@ -52,6 +58,37 @@ function roleFromGroups(groups: unknown): UserRole | null {
 }
 
 /**
+ * Verifies a raw Cognito access token JWT and extracts a `Session` from it.
+ * Returns null when the token is expired/invalid, or carries no recognized
+ * pool group.
+ *
+ * Shared by `getServerSession()` below (cookie path, used by every
+ * auth-gated Server Component) and `POST /api/auth/session`
+ * (app/api/auth/session/route.ts, the sign-in route handler that verifies
+ * a token the client just received from Cognito before trusting it enough
+ * to set as a cookie) — one verification path, two callers.
+ */
+export async function resolveSession(token: string): Promise<Session | null> {
+  try {
+    const payload = await getVerifier().verify(token);
+    const role = roleFromGroups(payload["cognito:groups"]);
+    if (!role) return null;
+
+    return {
+      cognitoSub: payload.sub,
+      // Cognito *access* tokens don't carry an email claim by default (ID
+      // tokens do) — until a page needs it beyond what's already in the
+      // JWT, callers can follow up with GET /auth/me.
+      email: typeof payload.email === "string" ? payload.email : "",
+      role,
+      accessToken: token,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Reads and verifies the caller's Cognito session, server-side.
  * Returns null when there's no cookie, the token is expired/invalid, or it
  * carries no recognized pool group — callers should treat that the same as
@@ -61,23 +98,5 @@ function roleFromGroups(groups: unknown): UserRole | null {
 export async function getServerSession(): Promise<Session | null> {
   const token = cookies().get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
-
-  try {
-    const payload = await getVerifier().verify(token);
-    const role = roleFromGroups(payload["cognito:groups"]);
-    if (!role) return null;
-
-    return {
-      cognitoSub: payload.sub,
-      // Cognito *access* tokens don't carry an email claim by default (ID
-      // tokens do) — this is populated once the sign-in flow is built,
-      // either by decoding the ID token alongside the access token here,
-      // or by the caller following up with GET /auth/me.
-      email: typeof payload.email === "string" ? payload.email : "",
-      role,
-      accessToken: token,
-    };
-  } catch {
-    return null;
-  }
+  return resolveSession(token);
 }
