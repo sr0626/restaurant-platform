@@ -293,6 +293,16 @@ indirectly and must follow the same principles:
   changes (added 2026-09-13) — keep it short, bullets only, not verbose.
   Same as BRD: still needs a PR (branch protection), but skips Architect
   review for a fast human merge — it's a status snapshot, not code.
+- ALWAYS update `docs/PROJECT_PLAN.csv` in the same change whenever a
+  feature/task's status changes (added 2026-09-13) — same trigger as the
+  `docs/STATUS.md` rule directly above, so both get touched together as one
+  effort, not as separate PRs: bump the row's `Status` column and its
+  `PR/Reference` column (add the merged PR number). `docs/PROJECT_PLAN.csv`
+  is the detailed row-per-feature tracker with full BRD traceability across
+  all phases; `docs/STATUS.md` stays the quick bullet-only "what's true right
+  now" snapshot — they serve different purposes and are not a replacement for
+  each other. Same PR-required-but-skip-Architect-review treatment as
+  `docs/STATUS.md`.
 - ALWAYS put BRD updates on a PR the same as anything else (branch
   protection on `main` requires this, no exceptions by file type — added
   2026-09-12) — BUT skip Architect's review gate for a BRD-only PR and
