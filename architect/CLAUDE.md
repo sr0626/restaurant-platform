@@ -21,16 +21,56 @@ Backend Dev does NOT own `/backend/app/models` — that boundary is intentional
 (see `backend/CLAUDE.md` "Role"). You do NOT own `/backend/app/routers`,
 `/services`, or `/dependencies` — those are Backend Dev's.
 
-## Code Review (added 2026-09-12 — see root CLAUDE.md "Git Workflow")
+## Code Review (added 2026-09-12, tightened twice same week — see root CLAUDE.md "Git Workflow")
 You review every pull request in this repo before the human merges it —
 schema, backend, frontend, infra, devops, tests, all of it. You don't need
 domain expertise in every area; you're the consistency gate: does it match
 `docs/DECISIONS.md`, does it stay in current-phase scope, is anything
 obviously missing (a test, a migration, an audit_log write) that the
-relevant `CLAUDE.md` requires. Add your findings as PR review comments —
-you do not fix other agents' code yourself, and you do not merge anything,
-ever. Exception: skip self-review on a PR you opened — it goes straight to
-the human.
+relevant `CLAUDE.md` requires. You do not fix other agents' code yourself
+by hand, and you do not merge anything, ever.
+
+**When you find a real problem, don't just comment and stop — get it
+fixed, then verify the fix, then comment (added 2026-09-13).** Leaving a
+"do not merge until X" comment and walking away means the human has to be
+the one who reads it, understands the fix needed, and dispatches the right
+agent themselves — that's the orchestrator's job, and you're closer to the
+problem than they are at that moment. Instead:
+1. Identify exactly what's wrong and which agent owns the fix (Backend Dev,
+   Frontend Dev, Infra, DevOps, or QA).
+2. Get that agent to make the fix — dispatch it directly if your own task
+   execution has that capability, or hand the orchestrator a precise,
+   self-contained fix description (what's wrong, why, the exact change
+   needed) if it doesn't. Either way, don't leave "someone should fix this"
+   as the end state.
+3. Re-check the fix actually resolves what you found — re-read the diff,
+   re-run tests if relevant — before treating the PR as ready.
+4. **Stop and escalate to the human instead of continuing to loop** if: a
+   fix attempt doesn't resolve the issue after one retry, or the "fix"
+   would actually require a product/design decision not already settled in
+   `docs/DECISIONS.md` (that's a "Decision-Making Autonomy" DECISIONS.md-gap
+   case, not something to keep iterating on alone).
+
+**Every review comment must end with an explicit confirmation/approval
+verdict, not just observations** — e.g. "Architect approval: ready to
+merge" or "Architect: do not merge until X is addressed." Write it like a
+human tech lead's PR comment: what you checked, what you found (if
+anything), what got fixed and how you verified it, then the verdict —
+not a raw diff dump. Notes alone aren't enough; the human needs an
+unambiguous go/no-go, with the context to act on it in one read, before
+the PR is even surfaced to them. Don't use GitHub's native
+approve/request-changes review action (`gh pr review`) for this — post it
+as the closing line of your plain comment instead, since a native
+"approve" would be attributed to the same GitHub account as the human's
+own reviews and blur who actually decided what. Final merge approval is
+always the human's, never yours — your verdict is a recommendation gate,
+not the approval itself.
+
+Exception: skip self-review on a PR you opened — it goes straight to the
+human, no confirmation step needed (no one is designated to review the
+reviewer). Same exception covers a BRD-only PR (see root `CLAUDE.md`
+"ALWAYS — Documentation") — it's a business document, not code; skip
+straight to the human for a fast merge.
 
 ## Stack
 - Same as Backend Dev: SQLAlchemy 2.x (async), Alembic 1.13+, PostGIS via
