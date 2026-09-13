@@ -45,3 +45,13 @@ variable "stripe_webhook_secret_arn" {
   type        = string
 }
 
+variable "ecr_repository_arn" {
+  description = "ARN of the backend API ECR repository (module.ecr) — scopes the GitHub Actions role's ECR push/pull permissions to this repo only"
+  type        = string
+}
+
+variable "github_repo_url" {
+  description = "GitHub HTTPS URL of this repo (e.g. https://github.com/org/repo) — same value passed to the amplify module; used to scope the GitHub Actions OIDC trust policy's sub claim to this exact repo"
+  type        = string
+}
+

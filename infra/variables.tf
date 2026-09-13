@@ -48,6 +48,20 @@ variable "allowed_origins" {
   default     = ["http://localhost:3000"]
 }
 
+variable "lambda_image_uri" {
+  description = <<-EOT
+    Optional override for the API Lambda's container image URI
+    (<repository_url>:<tag> or <repository_url>@<digest>). Leave unset to
+    default to the ECR repo's `:bootstrap` tag (see the `module "lambda"`
+    comment in main.tf) — that tag must be pushed manually, once, before the
+    very first apply of a new environment. `terraform plan` never wants to
+    revert a later DevOps deploy back to this value (or the default) because
+    `aws_lambda_function.api` has `lifecycle.ignore_changes = [image_uri]`.
+  EOT
+  type        = string
+  default     = null
+}
+
 variable "aurora_max_capacity" {
   description = "Aurora Serverless v2 max ACU (must not exceed 8 without approval)"
   type        = number
