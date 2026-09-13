@@ -447,6 +447,156 @@ nothing is actually deleted).
 
 ---
 
+## Location Managers (`location_manager`)
+
+Closes the gap flagged in `backend/app/services/location_manager_service.py`'s
+module docstring: the paid-tier 2-active-manager cap (DECISIONS.md
+"Assignable location managers capped at 2 per location") already has its
+cap-check helper (`assert_can_add_active_manager`) implemented and ready,
+but no contract existed for Backend Dev to wire it to. This section is that
+contract. All three endpoints are sub-resources of `/locations/{id}`, same
+reasoning as `/locations/{id}/hours` and `/locations/{id}/photos` above —
+they stay within the Phase 1 `/locations` (CRUD) endpoint family rather than
+introducing a new top-level `/managers` family.
+
+**Identifier judgment call (flagged for review):** the request below
+identifies the manager being assigned by **email**, not by Cognito `sub`,
+even though `location_manager.user_id` stores the `sub`
+(`docs/DATA_MODEL.md` "location_manager"). An owner assigning a manager
+knows that person's email, not their opaque Cognito subject id — nothing
+elsewhere in this API surfaces a raw `sub` to an owner for them to reference
+(compare `GET /auth/me`, which returns `email` to the caller about
+*themselves*, never a `sub` for someone else). The service layer resolves
+`manager_email` to a Cognito `sub` via a Cognito Admin API lookup
+(`list_users` filtered on the pool's `email` attribute, since username and
+email aren't guaranteed to be the same value) before writing
+`location_manager.user_id`. This is new Cognito-side surface for Backend
+Dev — it will need a narrowly-scoped IAM permission (`cognito-idp:ListUsers`
+on this one user pool, not a broader Cognito grant — root CLAUDE.md "AWS
+Best Practices") from Infra to make that call. If the lookup finds no
+matching user (nobody has signed up with that email yet), the endpoint
+returns `404` — this contract does not define an invite-by-email flow for a
+not-yet-registered user; the manager must already exist as a Cognito user
+before an owner can assign them.
+
+Response rows below include a **read-time-resolved** `email` field for
+display — the same "resolve the external identifier back to something
+human-readable on the way out" pattern `cover_photo_url` uses for `s3_key`
+— not a stored column. This is cheap here regardless of caller: the
+paid-tier cap bounds active rows to 2, and even the historical (inactive)
+rows for a single location are never a large set. If the lookup fails for a
+since-deleted Cognito user, `email` is `null` rather than surfacing an
+internal error (root CLAUDE.md "NEVER expose internal stack details in API
+error responses").
+
+### POST /locations/{id}/managers
+
+Auth: owner only (must own the parent brand) — **no admin, no manager
+path**, matching `POST /locations` and `POST /restaurants` above (owner
+creates resources under their own brand) rather than the owner-or-admin
+pattern used for the soft-deactivate action below. Per root CLAUDE.md's
+Key Domain Concepts ("a manager can manage multiple locations, assigned by
+owner"), assigning a manager is exclusively an owner action.
+**Implementation note:** none of the existing auth dependencies in
+`backend/app/dependencies/auth.py` match this shape exactly
+(`require_location_write_access` also admits an already-assigned manager,
+which is wrong here) — Backend Dev will need a new owner-only, no-manager-
+path dependency for this route.
+
+Body:
+```json
+{ "manager_email": "manager@example.com" }
+```
+
+Response: `201`
+```json
+{
+  "id": 12,
+  "location_id": 456,
+  "user_id": "us-east-1:9f2b3c1a-...",
+  "email": "manager@example.com",
+  "is_active": true,
+  "assigned_by_owner_id": 55,
+  "assigned_at": "2026-09-12T10:00:00Z",
+  "revoked_at": null
+}
+```
+
+Errors:
+| Status | Code | When |
+|---|---|---|
+| 404 | `not_found` | Location doesn't exist |
+| 403 | `forbidden` | Caller doesn't own the location's parent brand |
+| 404 | `manager_not_found` | No Cognito user exists with `manager_email` |
+| 409 | `manager_cap_reached` | Location is `is_paid=true` and already has 2 active managers — from the existing `assert_can_add_active_manager` check in `location_manager_service.py`, unchanged |
+| 409 | `already_active_manager` | This user already has an active assignment on this location — `uq_location_manager_active_user` (`docs/DATA_MODEL.md`) would otherwise raise a raw DB integrity error; service layer catches it the same way `DELETE /restaurants/{id}` catches its `ON DELETE RESTRICT` case above |
+
+Audit: `audit_log` row (`table_name="location_manager"`, `action="create"`) — `location_manager` is in root CLAUDE.md's audit-required table list.
+
+### GET /locations/{id}/managers
+
+Auth: owner (owns parent brand), admin, or a manager with an active
+assignment on this location — the general read-permission pattern already
+used for owner/manager-shared access (`require_location_write_access`'s
+check, applied here for a read instead of a write).
+
+Query params:
+| Param | Type | Notes |
+|---|---|---|
+| active_only | bool, optional, default false | Forced `true` server-side when the caller is a manager (not owner/admin) — a manager sees who else currently manages this location, not the full removal history. Owner/admin get the full history (including deactivated rows) by default, or can pass `true` to narrow to active only. |
+
+Response: `200`
+```json
+{
+  "results": [
+    {
+      "id": 12,
+      "location_id": 456,
+      "user_id": "us-east-1:9f2b3c1a-...",
+      "email": "manager@example.com",
+      "is_active": true,
+      "assigned_by_owner_id": 55,
+      "assigned_at": "2026-09-12T10:00:00Z",
+      "revoked_at": null
+    }
+  ]
+}
+```
+No `page`/`page_size`/`total` — unlike `/search` and the other list
+endpoints above, this list is bounded by the 2-active-per-location cap plus
+a small history, never large enough to need paging.
+
+### DELETE /locations/{id}/managers/{manager_id}
+
+Auth: owner (owns parent brand) or admin — same auth pattern as
+`DELETE /locations/{id}` above (`require_location_owner_or_admin` in
+`backend/app/dependencies/auth.py` already matches this shape exactly, no
+new dependency needed). **No self-removal by the assigned manager** — see
+`docs/DECISIONS.md` "Location manager removal is owner/admin-only, no
+self-removal" for the reasoning.
+
+`manager_id` is `location_manager.id` (the assignment row's own PK), not
+the manager's `user_id` — a location can have multiple historical rows for
+the same `user_id` (revoked, then reassigned later), so the assignment id
+is the unambiguous target.
+
+**Soft-deactivate, not a row delete** — sets `is_active=false`,
+`revoked_at=now()` (the column already exists on `location_manager`,
+`docs/DATA_MODEL.md`), same "kept, not deleted" discipline as
+`DELETE /locations/{id}`. Idempotent: calling this again on an
+already-inactive row returns `204` without error rather than a `409` or
+`404` — plain REST-delete idempotency, no cap-check or other side effect
+fires on a no-op.
+
+Response: `204 No Content`.
+
+Audit: `audit_log` row (`table_name="location_manager"`, `action="update"`,
+noting the `is_active` transition — not `action="delete"`, same phrasing
+convention as `DELETE /locations/{id}` above, since nothing is actually
+deleted).
+
+---
+
 ## Claim flow (`/claim`)
 
 Implements DECISIONS.md "Claim flow": Google Business Profile match OR
