@@ -1,8 +1,16 @@
-// Homepage / search entry point. Deliberately unstyled — the homepage
-// visual/color direction is still under review (5 candidate designs on
-// the design canvas, not yet picked). This placeholder exists only so the
-// route is navigable; do not add layout/visual decisions here yet.
+// Homepage — "Spice Market" visual direction (picked 2026-09-13 from a
+// 12-option design canvas; see docs/homepage-direction-spice-market and
+// tailwind.config.ts's header comment for the token scheme this page is
+// built on). Every color/font/radius/shadow below is a Tailwind token
+// (`bg-brand-*`, `text-brand-*`, `font-display`, `rounded-brand-*`,
+// `shadow-brand-*`) — no literal hex code or font-family string lives in
+// this file, so a future rebrand only touches tailwind.config.ts/globals.css.
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import TopBar from "@/components/home/TopBar";
+import Hero from "@/components/home/Hero";
+import PopularNearYou from "@/components/home/PopularNearYou";
+import PopularNearYouSkeleton from "@/components/home/PopularNearYouSkeleton";
 
 export const metadata: Metadata = {
   title: "Indian Restaurant Discovery — Dallas-Fort Worth",
@@ -12,9 +20,24 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <main>
-      <h1>Indian Restaurant Discovery — Dallas-Fort Worth</h1>
-      <p>Under construction — homepage design is pending the color/style direction decision.</p>
+    <main className="min-h-screen bg-brand-bg">
+      <TopBar />
+      <Hero />
+
+      <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+        <h2 className="font-display text-2xl font-bold text-brand-ink sm:text-3xl">
+          Popular near you
+        </h2>
+        <p className="mt-1 text-sm text-brand-ink-muted">
+          Verified Indian restaurants around Dallas-Fort Worth.
+        </p>
+
+        <div className="mt-6">
+          <Suspense fallback={<PopularNearYouSkeleton />}>
+            <PopularNearYou />
+          </Suspense>
+        </div>
+      </section>
     </main>
   );
 }
