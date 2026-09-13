@@ -206,6 +206,9 @@ column, or a bucket) that current data now depends on. Landed on:
 noticing a `- destroy` line buried in a larger plan diff), only adding
 `prevent_destroy` once `test`/`prod` exist (defers a cheap guard to a point
 where retrofitting it is riskier and easier to forget)*
+**Signed off by user 2026-09-12** — Architect/DevOps flagged this specifically
+(applying `prevent_destroy` in `dev` before it's strictly needed) for explicit
+human sign-off rather than treating it as settled; approved as written.
 
 **Hotfix path for an environment beyond dev: still PR + review, expedited, prod can go ahead of test but must backfill test immediately after**
 2026-09-12 | Joint Architect + DevOps decision, same discussion — addresses
@@ -231,6 +234,10 @@ drift trunk-based git was chosen to avoid), skipping Architect review for
 speed (review is the scope/consistency gate for every PR, urgency isn't a
 reason to remove the only reviewer), silently allowing prod-ahead-of-test
 promotions with no record (makes environment drift invisible)*
+**Signed off by user 2026-09-12** — Architect/DevOps flagged the prod-ahead-
+of-test exception specifically (real speed-vs-drift-risk tradeoff) for
+explicit human sign-off rather than treating it as settled; approved as
+written, including the mandatory backfill-next-pass and CMD_LOG record.
 
 **Multi-service scaling: ECR/Lambda modules gain a `service_name` variable now, so a second service is a module-block copy, not a redesign**
 2026-09-12 | DevOps assessment, same discussion. `infra/modules/ecr` (see PR
