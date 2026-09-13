@@ -77,6 +77,10 @@ git push -u origin feature/homepage-spice-market-theme   # claude  (Spice Market
 gh pr create --base main --head feature/homepage-spice-market-theme   # claude  (no pre-approval needed, per relaxed push rule)
 git push -u origin docs/status-homepage-merged   # claude
 gh pr create --base main --head docs/status-homepage-merged   # claude
+git push -u origin fix/next-config-js   # claude  (next.config.ts -> .mjs fix, no pre-approval needed, per relaxed push rule)
+gh pr create --base main --head fix/next-config-js   # claude  (no pre-approval needed, per relaxed push rule)
 git push -u origin feature/search-and-restaurant-detail-pages   # claude  (search + restaurant detail pages, no pre-approval needed, per relaxed push rule)
 gh pr create --base main --head feature/search-and-restaurant-detail-pages   # claude  (no pre-approval needed, per relaxed push rule)
+git merge origin/main   # claude  (resolved next.config.ts/.mjs + CMD_LOG.md conflicts from PR #19 landing after this branch was cut)
+git push origin feature/search-and-restaurant-detail-pages   # claude  (Architect fix-loop: merge main to un-revert the next.config.mjs fix, onto PR #21)
 ```
