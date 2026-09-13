@@ -5,7 +5,7 @@ implements exactly these shapes; Frontend Dev's typed API client
 (`frontend/src/lib/api/`) is generated against them. Covers exactly the
 Phase 1 endpoint families listed in `backend/CLAUDE.md`'s Phase 1
 Scope: `/search`, `/restaurants` (CRUD), `/locations` (CRUD), `/claim`,
-`/auth`.
+`/auth`, plus `/cuisine-tags` (added 2026-09-13 — see below).
 
 **Auth model reference** (backend/CLAUDE.md "Public Routes"): only
 `GET /health`, `GET /search`, `GET /restaurants/{id}`,
@@ -114,7 +114,112 @@ Notes:
 
 ---
 
+## GET /cuisine-tags
+
+Auth: none (public)
+
+**Added 2026-09-13, closing a gap flagged during PR #17 review** (see
+`docs/DECISIONS.md` "Cuisine tags: public read endpoint, no
+pagination"): the homepage's cuisine filter chips were a hardcoded
+frontend constant with no backend source of truth, risking silent
+drift from the real `cuisine_tag` table (`docs/DATA_MODEL.md`
+"cuisine_tag"). This is a new top-level family, not a sub-resource of
+`/restaurants` or `/search` — `cuisine_tag` isn't owned by a brand or
+location, it's a standalone admin-seeded taxonomy table that both
+`/search`'s `cuisine[]`/`dietary[]`/`type[]` params and the owner
+portal's tag picker (`POST`/`PATCH /restaurants` `cuisine_tag_ids`)
+need to resolve against.
+
+Query params:
+| Param | Type | Notes |
+|---|---|---|
+| category | string, optional | One of `regional` \| `dietary` \| `type` \| `signature` \| `dining_time` (`cuisine_tag.category` values). Omitted returns all categories. |
+
+Response:
+```json
+{
+  "results": [
+    { "name": "hyderabadi", "display_name": "Hyderabadi", "category": "regional" }
+  ]
+}
+```
+`is_active=true` rows only — a deactivated tag (admin can deactivate
+without deleting, per `docs/DATA_MODEL.md`) drops out of this list but
+stays intact for any brand still linked to it via `restaurant_cuisine`.
+
+No `page`/`page_size`/`total` — same reasoning as
+`GET /locations/{id}/managers` above: `cuisine_tag` is a small,
+effectively-static seeded taxonomy table (`docs/TAXONOMY.md`), not a
+growing collection, so pagination would add shape without solving a
+real problem.
+
+---
+
 ## Restaurants (`restaurant_brand`)
+
+### GET /restaurants
+
+Auth: owner or admin
+
+**Added 2026-09-13, closing a gap flagged while unblocking the owner
+portal dashboard** (see `docs/DECISIONS.md` "Owner-scoped restaurant
+list: bare GET /restaurants, not /restaurants/mine or a /search
+variant"): there was previously no way for an authenticated owner to
+discover their own brands — `GET /restaurants` only supported the
+single id-or-slug lookup below. This is deliberately **not** a new
+`/restaurants/mine` route: `GET /restaurants/{id}` already overloads
+on caller intent (id vs. slug) rather than spawning a new top-level
+route for a variant lookup, and this follows the same pattern —
+`GET /restaurants` (no path param) now means "list what I can see,"
+scoped by caller role.
+
+Owner caller: implicitly filtered to `owner_id = current_user.id`.
+**No query param can widen this** — never trust a client-supplied
+owner filter for a non-admin caller, same posture as
+`PATCH /auth/me` (self-scoped writes, identity always taken from the
+validated JWT, never the request body/query string).
+
+Admin caller: optional `owner_id` query param.
+
+Query params:
+| Param | Type | Notes |
+|---|---|---|
+| owner_id | int, optional | **Admin only** — ignored (never applied) for an owner caller, who is always filtered to their own `owner_id` regardless of this param. Omitted for an admin caller returns all brands. |
+| page | int, optional, default 1 | |
+| page_size | int, optional, default 20, max 100 | |
+
+Response:
+```json
+{
+  "results": [
+    {
+      "id": 123,
+      "name": "Spice Route",
+      "slug": "spice-route",
+      "description": "Hyderabadi biryani specialists since 2010.",
+      "is_claimed": true,
+      "owner_id": 55,
+      "cuisine_tags": [
+        { "name": "hyderabadi", "display_name": "Hyderabadi", "category": "regional" }
+      ],
+      "location_count": 3
+    }
+  ],
+  "page": 1,
+  "page_size": 20,
+  "total": 2
+}
+```
+Same per-row shape as `GET /restaurants/{id}` below (not a
+summary/list-trimmed variant) — the owner portal dashboard needs the
+same fields the single-brand detail page shows, and keeping one shape
+avoids Frontend Dev maintaining two brand card types.
+
+This is **not** a duplicate of `GET /search`: `/search` is the public
+geo/filter discovery endpoint (radius, cuisine/dietary/type filters,
+brand-level rollup of nearby locations) with no auth and no ownership
+concept. `GET /restaurants` here is "what do I own" — auth-gated, no
+geo component, no `nearest_location`/`distance_mi` fields at all.
 
 ### GET /restaurants/{id}
 
