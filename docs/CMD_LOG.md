@@ -69,4 +69,6 @@ git push origin integration/phase1-backend-full   # claude  (id/slug fix, commit
 git push origin docs/project-status   # claude  (STATUS.md refresh + .gitignore fix, onto PR #13)
 git push origin pr7-slug-test-fix:integration/phase1-backend-full   # claude  (Architect's slug-lookup test coverage, onto PR #7)
 git push origin docs/project-status   # claude  (PR #7 approved status update, onto PR #13)
+git push -u origin docs/homepage-direction-spice-market   # claude  (no pre-approval needed, per relaxed push rule)
+gh pr create --base main --head docs/homepage-direction-spice-market   # claude  (no pre-approval needed, per relaxed push rule)
 ```
