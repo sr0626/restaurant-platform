@@ -15,6 +15,21 @@ variable "phase" {
   default     = "phase1"
 }
 
+variable "service_name" {
+  description = <<-EOT
+    Service identifier used in the API-style Lambda's naming:
+    "$${project}-$${service_name}-$${env}". Defaults to "api" so the existing
+    single-service call site (module "lambda" in root main.tf) is
+    unaffected. A second service later is a second `module "lambda"` block
+    with a different service_name — see DECISIONS.md "Multi-service
+    scaling" — not a redesign of this module. Does NOT affect the
+    deal-expiry Lambda (a single cross-service cron job, not per-service) or
+    the shared API Gateway resource.
+  EOT
+  type        = string
+  default     = "api"
+}
+
 variable "aws_region" {
   description = "AWS region"
   type        = string
