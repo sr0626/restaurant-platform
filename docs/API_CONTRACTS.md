@@ -120,6 +120,19 @@ Notes:
 
 Auth: none (public)
 
+**`{id}` accepts either the numeric `restaurant_brand.id` or the brand's
+`slug` (added 2026-09-13, closing a gap flagged in PR #8's review — see
+`docs/DECISIONS.md` "Restaurant lookup by id or slug").** Resolution
+order: if the path segment is all-digits, look up by `id`; otherwise look
+up by `slug`. `slug` is `unique, not null` (`docs/DATA_MODEL.md`
+"restaurant_brand"), and server-generated from `name` on create (see
+`POST /restaurants` below), so a collision between a real numeric `id`
+and an all-digit `slug` is not expected in practice — server-generated
+slugs are name-derived, not numeric. 404 if neither lookup matches.
+This is a single overloaded path param, not a second route — Backend
+Dev's existing `GET /restaurants/{id}` handler resolves both, it isn't a
+new endpoint.
+
 Response:
 ```json
 {

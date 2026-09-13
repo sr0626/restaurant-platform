@@ -361,6 +361,38 @@ backend and infra CI only.
 
 ## Database & Data Model
 
+**Restaurant lookup by id or slug: `GET /restaurants/{id}` resolves either, not a separate route**
+2026-09-13 | Architect decision, made while reviewing PR #8 (frontend
+scaffold). Frontend Dev's `getRestaurantBySlug` (matching
+`frontend/CLAUDE.md`'s own SSR listing-page example, which calls
+`getRestaurantBySlug(params.slug)` from `/restaurant/[slug]/page.tsx`)
+calls `GET /restaurants/{id}` with the brand's `slug`, but
+`docs/API_CONTRACTS.md` only documented a numeric `id` lookup and
+Backend Dev's PR #7 had already typed the path param as `brand_id: int`
+— a real contract gap, not just an overly-cautious flag in the PR
+description. Resolved by extending the existing route rather than adding
+a new one: the path segment is looked up by `id` when all-digits,
+otherwise by `slug` (`restaurant_brand.slug` is `unique, not null` and
+server-generated from `name`, so it isn't expected to collide with a
+numeric `id` in practice). Keeps the endpoint families list in
+`docs/API_CONTRACTS.md`'s intro unchanged (still just `/restaurants`
+CRUD) instead of adding a `by-slug` sub-route, consistent with how
+`restaurant_photo` and hours were kept as sub-resources rather than new
+top-level families. **Backend Dev: PR #7's `get_restaurant(brand_id:
+int, ...)` in `backend/app/routers/restaurants.py` /
+`restaurant_service.get_restaurant` needs updating to accept a string
+identifier and branch on all-digits vs. not before this can merge as
+documented** — flagged to the orchestrator alongside this decision, not
+fixed here (outside Architect's owned files). No frontend change needed
+— PR #8's `getRestaurantBySlug` already calls the plain `{id}` path with
+the slug, which is exactly this resolution.
+*Rejected: a dedicated `GET /restaurants/by-slug/{slug}` route (works,
+but adds route-ordering complexity in FastAPI — a literal path segment
+must be registered before the parameterized one to avoid ambiguity —
+for no real benefit over a single overloaded lookup), requiring the
+frontend to pre-resolve slug->id via `/search` first (extra round trip
+on every listing-page load, defeats the point of SSR-by-slug)*
+
 **Tier stored as boolean (is_paid + paid_until) on restaurant_location**
 May 2026 | No stored tier enum. is_paid is set directly by Stripe webhooks and admin
 free offer grants. Single indexed boolean read per request — fast, simple, no cache needed.
