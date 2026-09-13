@@ -191,6 +191,33 @@ async def require_admin(
     return current_user
 
 
+async def require_owner_or_admin(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CurrentUser:
+    """Auth: owner or admin — `GET /restaurants` (docs/API_CONTRACTS.md
+    "Owner-scoped restaurant list"). For an owner caller this lazily
+    provisions/looks up the local `owner_account` row (same as
+    `require_owner`) so `current_user.owner_account_id` is populated —
+    the service layer uses that to hard-filter the list to the caller's
+    own brands, with no query param able to widen it (never trust a
+    client-supplied `owner_id` for a non-admin caller, same posture as
+    `PATCH /auth/me`). An admin caller gets no `owner_account_id` here;
+    they may instead pass an explicit `owner_id` query param, handled
+    entirely in the service layer.
+    """
+    if current_user.role == "admin":
+        return current_user
+    if current_user.role != "owner":
+        raise AppError(403, "Owner or admin access required", "forbidden")
+    owner = await auth_service.get_or_create_owner_account(
+        db, current_user.cognito_sub, current_user.email
+    )
+    await db.commit()
+    current_user.owner_account_id = owner.id
+    return current_user
+
+
 async def require_brand_write_access(
     brand_id: int,
     db: AsyncSession = Depends(get_db),

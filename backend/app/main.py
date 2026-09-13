@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from mangum import Mangum
 
 from app.core.errors import register_exception_handlers
-from app.routers import auth, claim, health, locations, restaurants, search
+from app.routers import auth, claim, cuisine, health, locations, restaurants, search
 
 app = FastAPI(title="Restaurant Discovery Platform API")
 
@@ -23,6 +23,7 @@ app.include_router(restaurants.router)
 app.include_router(locations.router)
 app.include_router(claim.router)
 app.include_router(auth.router)
+app.include_router(cuisine.router)
 
 # package_type = "Image" Lambda functions have no separate "handler" config
 # — the Dockerfile's CMD *is* the handler, in "<module>.<callable>" form

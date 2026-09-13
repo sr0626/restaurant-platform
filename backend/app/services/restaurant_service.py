@@ -11,10 +11,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
+from app.dependencies.pagination import Pagination
 from app.models.restaurant_brand import RestaurantBrand
 from app.models.restaurant_location import RestaurantLocation
 from app.schemas.cuisine import CuisineTagOut
-from app.schemas.restaurant import RestaurantCreate, RestaurantOut, RestaurantUpdate
+from app.schemas.restaurant import (
+    RestaurantCreate,
+    RestaurantListResponse,
+    RestaurantOut,
+    RestaurantUpdate,
+)
 from app.services import audit_service, auth_service, cuisine_service
 
 
@@ -74,6 +80,52 @@ async def get_brand_or_404(db: AsyncSession, brand_id: int) -> RestaurantBrand:
     if brand is None:
         raise AppError(404, "Restaurant not found", "not_found")
     return brand
+
+
+async def list_restaurants(
+    db: AsyncSession,
+    current_user,
+    owner_id_param: int | None,
+    pagination: Pagination,
+) -> RestaurantListResponse:
+    """`GET /restaurants` — docs/API_CONTRACTS.md "Owner-scoped restaurant
+    list". Auth is owner or admin (`require_owner_or_admin`).
+
+    Security-sensitive: an owner caller is hard-filtered server-side to
+    their own `owner_id` — `owner_id_param` is only ever consulted for an
+    admin caller. There is deliberately no code path where a non-admin
+    caller's `owner_id_param` reaches the query, no matter what value is
+    passed (docs/API_CONTRACTS.md: "No query param can widen this — never
+    trust a client-supplied owner filter for a non-admin caller").
+    """
+    if current_user.role == "admin":
+        effective_owner_id = owner_id_param
+    else:
+        effective_owner_id = current_user.owner_account_id
+
+    filters = []
+    if effective_owner_id is not None:
+        filters.append(RestaurantBrand.owner_id == effective_owner_id)
+
+    total = (
+        await db.execute(select(func.count()).select_from(RestaurantBrand).where(*filters))
+    ).scalar_one()
+
+    rows = (
+        await db.execute(
+            select(RestaurantBrand)
+            .where(*filters)
+            .order_by(RestaurantBrand.id)
+            .offset(pagination.offset)
+            .limit(pagination.page_size)
+        )
+    ).scalars().all()
+
+    results = [await _brand_to_out(db, row) for row in rows]
+
+    return RestaurantListResponse(
+        results=results, page=pagination.page, page_size=pagination.page_size, total=total
+    )
 
 
 async def create_restaurant(db: AsyncSession, body: RestaurantCreate, current_user) -> RestaurantOut:
