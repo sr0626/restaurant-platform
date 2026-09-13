@@ -49,3 +49,15 @@ class LocationListResponse(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+class RestaurantListResponse(BaseModel):
+    """`GET /restaurants` — see docs/API_CONTRACTS.md "Owner-scoped
+    restaurant list". Same per-row shape as `RestaurantOut`
+    (`GET /restaurants/{id}`) — not a summary/list-trimmed variant.
+    """
+
+    results: list[RestaurantOut]
+    page: int
+    page_size: int
+    total: int

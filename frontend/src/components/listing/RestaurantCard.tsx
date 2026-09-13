@@ -11,28 +11,7 @@
 import Link from "next/link";
 import type { SearchResultItem } from "@/types/search";
 import { LocationPinIcon, StarIcon } from "@/components/ui/icons";
-
-function OpenStatusBadge({ isOpenNow }: { isOpenNow: boolean | null }) {
-  if (isOpenNow === null) {
-    return (
-      <span className="inline-flex items-center rounded-brand-pill bg-brand-chip px-2.5 py-1 text-xs font-semibold text-brand-ink-subtle">
-        Hours unknown
-      </span>
-    );
-  }
-  if (isOpenNow) {
-    return (
-      <span className="inline-flex items-center rounded-brand-pill bg-brand-success-bg px-2.5 py-1 text-xs font-semibold text-brand-success">
-        Open Now
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center rounded-brand-pill bg-brand-closed-bg px-2.5 py-1 text-xs font-semibold text-brand-closed">
-      Closed
-    </span>
-  );
-}
+import OpenStatusBadge from "@/components/ui/OpenStatusBadge";
 
 export default function RestaurantCard({ item }: { item: SearchResultItem }) {
   const { nearest_location } = item;

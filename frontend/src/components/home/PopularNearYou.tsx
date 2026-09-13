@@ -19,21 +19,9 @@
 // restaurant data.
 import { searchRestaurants } from "@/lib/api/search";
 import RestaurantCard from "@/components/listing/RestaurantCard";
+import InfoPanel from "@/components/ui/InfoPanel";
 
 const POPULAR_NEAR_YOU_PAGE_SIZE = 6;
-
-function InfoPanel({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-brand-card border border-dashed border-brand-border bg-white px-6 py-12 text-center">
-      <p className="font-display text-base font-semibold text-brand-ink">
-        {title}
-      </p>
-      <p className="mx-auto mt-2 max-w-md text-sm text-brand-ink-muted">
-        {body}
-      </p>
-    </div>
-  );
-}
 
 export default async function PopularNearYou() {
   let data;
