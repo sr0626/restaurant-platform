@@ -1,0 +1,68 @@
+// Client-side validation mirroring POST/PATCH /locations, PUT
+// /locations/{id}/hours, and the photo sub-resource body shapes
+// (docs/API_CONTRACTS.md "Locations").
+import { z } from "zod";
+
+const TIME_PATTERN = /^\d{2}:\d{2}:\d{2}$/;
+
+export const createLocationSchema = z.object({
+  brand_id: z.number().int().positive(),
+  address_line1: z.string().trim().min(1, "Address is required").max(200),
+  address_line2: z.string().trim().max(200).nullable(),
+  city: z.string().trim().min(1, "City is required").max(100),
+  state: z.string().trim().length(2, "Use a 2-letter state code"),
+  postal_code: z.string().trim().regex(/^\d{5}(-\d{4})?$/, "Enter a valid US ZIP code"),
+  country: z.string().trim().length(2, "Use a 2-letter country code"),
+  phone: z.string().trim().regex(/^\+?[1-9]\d{7,14}$/, "Enter a valid phone number"),
+  timezone: z.string().trim().min(1, "Timezone is required"),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+});
+
+export type CreateLocationFormValues = z.infer<typeof createLocationSchema>;
+
+export const updateLocationSchema = createLocationSchema.omit({ brand_id: true }).partial();
+
+export type UpdateLocationFormValues = z.infer<typeof updateLocationSchema>;
+
+const dayHourSchema = z
+  .object({
+    day_of_week: z.number().int().min(0).max(6),
+    open_time: z.string().regex(TIME_PATTERN, "Use HH:MM:SS").optional(),
+    close_time: z.string().regex(TIME_PATTERN, "Use HH:MM:SS").optional(),
+    is_closed: z.boolean().nullable(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.is_closed === false && (!value.open_time || !value.close_time)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Open and close time are required for a day that isn't closed.",
+      });
+    }
+  });
+
+export const updateLocationHoursSchema = z.object({
+  hours: z.array(dayHourSchema).max(7),
+});
+
+export type UpdateLocationHoursFormValues = z.infer<typeof updateLocationHoursSchema>;
+
+export const photoUploadUrlSchema = z.object({
+  content_type: z.enum(["image/jpeg", "image/png", "image/webp"], {
+    errorMap: () => ({ message: "Only JPEG, PNG, or WebP images are supported" }),
+  }),
+});
+
+export const createPhotoSchema = z.object({
+  s3_key: z.string().min(1),
+  is_cover: z.boolean(),
+});
+
+export const updatePhotoSchema = z
+  .object({
+    display_order: z.number().int().min(0).optional(),
+    is_cover: z.boolean().optional(),
+  })
+  .refine((value) => value.display_order !== undefined || value.is_cover !== undefined, {
+    message: "Provide at least one field to update",
+  });

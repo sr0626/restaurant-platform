@@ -1,0 +1,25 @@
+# AWS Amplify Hosting build config — frontend/CLAUDE.md "AWS Amplify
+# (hosting + CI/CD)" / docs/DECISIONS.md "AWS Amplify build, not separate
+# CI/CD for frontend". Amplify auto-detects the Next.js SSR compute needed
+# to serve app/ router pages from this build output — no separate
+# GitHub Actions workflow for frontend deploy (backend/infra CI is
+# GitHub Actions, owned by DevOps).
+version: 1
+applications:
+  - appRoot: frontend
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - "**/*"
+      cache:
+        paths:
+          - node_modules/**/*
+          - .next/cache/**/*

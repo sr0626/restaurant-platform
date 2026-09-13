@@ -1,5 +1,6 @@
 .env
 .env.*
+!.env.example
 terraform.tfvars
 !*.tfvars.example
 .terraform/
@@ -9,6 +10,8 @@ __pycache__/
 .pytest_cache/
 node_modules/
 .next/
+next-env.d.ts
+*.tsbuildinfo
 .DS_Store
 /personal/
 infra/ACCOUNTS.md
