@@ -8,17 +8,18 @@ that exist: the `dev` account itself, the Terraform state S3 bucket +
 DynamoDB lock table. `terraform apply` has never been run.
 
 ## Open PRs
-- #7 backend API + location-manager routes + tests — Architect approved, one more commit incoming (id/slug fix)
+- #7 backend API + location-manager routes + tests — id/slug fix pushed (commit 1af489d), Architect re-verifying
 - #8 frontend scaffold — Architect approved
 - #9 infra service_name + state key — Architect approved
 - #10 infra Cognito ListUsers grant — Architect approved
 - #11 Architect fix-loop rule (docs) — ready, self-authored
-- #12 restaurants id/slug contract fix (docs) — ready, self-authored
+- #12 restaurants id/slug contract (docs) — ready, self-authored
+- #13 this status doc (docs) — ready, self-authored
 
 ## Architect (schema + contracts)
 - [x] 13 entities modeled, 2 migrations written (never run)
 - [x] DATA_MODEL.md + API_CONTRACTS.md cover all Phase 1 endpoints
-- [x] Location-manager contract, id/slug restaurant lookup contract
+- [x] Location-manager contract, id/slug restaurant lookup contract — implemented + tests green (92/3/0)
 
 ## Backend (FastAPI)
 - [x] `/search`, `/restaurants` CRUD, `/restaurants/{id}/locations`
