@@ -1,0 +1,26 @@
+// Types for `restaurant_brand`, matching docs/API_CONTRACTS.md
+// "Restaurants (`restaurant_brand`)".
+import type { CuisineTag } from "./cuisine";
+
+/** Response shape for GET /restaurants/{id}, POST /restaurants, PATCH /restaurants/{id}. */
+export interface RestaurantBrand {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  is_claimed: boolean;
+  /** null for unclaimed listings — frontend renders a "Claim this listing" CTA. */
+  owner_id: number | null;
+  cuisine_tags: CuisineTag[];
+  location_count: number;
+}
+
+/** Body for POST /restaurants. Creates a new brand owned by the caller. */
+export interface CreateRestaurantInput {
+  name: string;
+  description: string;
+  cuisine_tag_ids: number[];
+}
+
+/** Body for PATCH /restaurants/{id}. Any subset of the create fields. */
+export type UpdateRestaurantInput = Partial<CreateRestaurantInput>;

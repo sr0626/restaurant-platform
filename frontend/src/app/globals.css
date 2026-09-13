@@ -1,0 +1,7 @@
+/* Tailwind plumbing only — no theme/color decisions here yet (homepage
+   visual direction is still under review). Utility classes only, no
+   custom CSS beyond these directives (frontend/CLAUDE.md "Tailwind CSS —
+   utility classes only, no custom CSS files"). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

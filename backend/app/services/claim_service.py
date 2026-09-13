@@ -1,0 +1,192 @@
+"""Claim flow business logic — see docs/API_CONTRACTS.md "Claim flow
+(/claim)" and DECISIONS.md "Claim flow: Google Business Profile match OR
+phone verification, admin-reviewed, 2-business-day SLA".
+
+JUDGMENT CALL (flagged for review): on `POST /claim`, this module eagerly
+resolves/creates the claimant's `owner_account` row (via
+`auth_service.get_or_create_owner_account`, using the claimant's *own*
+JWT email at submission time) rather than waiting until admin approval.
+`POST /claim/{id}/approve` sets `restaurant_brand.owner_id` to that
+resolved account's id — but approval is admin-initiated, and the admin's
+request carries no JWT for the claimant, so there is no email available
+at approval time to provision a brand-new `owner_account` row if one
+doesn't already exist. Resolving it at submission time (when the
+claimant's own authenticated request does carry their email) avoids that
+gap entirely. Cognito group elevation ("owner" pool group membership) on
+approval is NOT implemented here — that needs `cognito-idp:
+AdminAddUserToGroup`, a permission this task has no Infra-granted scope
+for (root CLAUDE.md "AWS Best Practices" — ask Infra for a specific grant
+rather than assuming one); left as a follow-up, noted in the final report.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.errors import AppError
+from app.models.claim_request import ClaimRequest
+from app.models.restaurant_brand import RestaurantBrand
+from app.models.restaurant_location import RestaurantLocation
+from app.schemas.claim import ClaimCreate, ClaimOut
+from app.services import audit_service, auth_service
+
+_SLA_BUSINESS_DAYS = 2
+
+
+def _add_business_days(start: datetime, days: int) -> datetime:
+    current = start
+    added = 0
+    while added < days:
+        current += timedelta(days=1)
+        if current.weekday() < 5:  # Mon-Fri
+            added += 1
+    return current
+
+
+def to_claim_out(claim: ClaimRequest) -> ClaimOut:
+    return ClaimOut(
+        claim_id=claim.id,
+        brand_id=claim.brand_id,
+        status=claim.status,
+        proof_method=claim.proof_method,
+        submitted_at=claim.submitted_at,
+        sla_due_at=_add_business_days(claim.submitted_at, _SLA_BUSINESS_DAYS),
+        reviewed_at=claim.reviewed_at,
+        reviewer_notes=claim.reviewer_notes,
+    )
+
+
+async def create_claim(db: AsyncSession, current_user, body: ClaimCreate) -> ClaimRequest:
+    brand = await db.get(RestaurantBrand, body.brand_id)
+    if brand is None:
+        raise AppError(404, "Restaurant not found", "not_found")
+
+    location: RestaurantLocation | None = None
+    if body.location_id is not None:
+        location = await db.get(RestaurantLocation, body.location_id)
+        if location is None or location.brand_id != brand.id:
+            raise AppError(400, "location_id does not belong to this restaurant", "invalid_location")
+
+    if body.proof_method == "phone_verification" and location is None:
+        # "the phone number already on the public listing" only resolves
+        # unambiguously for a single-location brand (docs/DATA_MODEL.md
+        # "claim_request" judgment call).
+        count_result = await db.execute(
+            select(func.count())
+            .select_from(RestaurantLocation)
+            .where(RestaurantLocation.brand_id == brand.id, RestaurantLocation.is_active == True)  # noqa: E712
+        )
+        if count_result.scalar_one() != 1:
+            raise AppError(
+                400,
+                "location_id is required for phone verification on a multi-location restaurant",
+                "location_required",
+            )
+        loc_result = await db.execute(
+            select(RestaurantLocation).where(
+                RestaurantLocation.brand_id == brand.id, RestaurantLocation.is_active == True  # noqa: E712
+            )
+        )
+        location = loc_result.scalar_one()
+
+    # Eagerly resolve/create the claimant's owner_account — see module
+    # docstring judgment call.
+    await auth_service.get_or_create_owner_account(db, current_user.cognito_sub, current_user.email)
+
+    claim = ClaimRequest(
+        brand_id=brand.id,
+        location_id=location.id if location else None,
+        claimant_user_id=current_user.cognito_sub,
+        proof_method=body.proof_method,
+        google_business_profile_url=body.google_business_profile_url,
+        supporting_document_key=body.supporting_document_url,
+        status="pending_review",
+    )
+    db.add(claim)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise AppError(409, "A claim is already pending for this restaurant", "claim_already_pending")
+
+    await db.refresh(claim)
+    return claim
+
+
+async def get_claim(db: AsyncSession, claim_id: int, current_user) -> ClaimRequest:
+    claim = await db.get(ClaimRequest, claim_id)
+    if claim is None:
+        raise AppError(404, "Claim not found", "not_found")
+    if current_user.role != "admin" and claim.claimant_user_id != current_user.cognito_sub:
+        raise AppError(403, "Not authorized to view this claim", "forbidden")
+    return claim
+
+
+async def _get_pending_claim_or_404(db: AsyncSession, claim_id: int) -> ClaimRequest:
+    claim = await db.get(ClaimRequest, claim_id)
+    if claim is None:
+        raise AppError(404, "Claim not found", "not_found")
+    if claim.status != "pending_review":
+        raise AppError(409, "Claim has already been reviewed", "claim_not_pending")
+    return claim
+
+
+async def approve_claim(
+    db: AsyncSession, claim_id: int, admin_sub: str, reviewer_notes: str | None
+) -> ClaimRequest:
+    claim = await _get_pending_claim_or_404(db, claim_id)
+
+    owner = await auth_service.get_owner_account_by_sub(db, claim.claimant_user_id)
+    if owner is None:
+        # Should not happen — create_claim always provisions this row at
+        # submission time. Surfaced as a clean 409 rather than a 500 if it
+        # somehow does (data inconsistency, not a caller error).
+        raise AppError(
+            409,
+            "Claimant has no owner account on file; cannot approve this claim",
+            "claimant_account_missing",
+        )
+
+    brand = await db.get(RestaurantBrand, claim.brand_id)
+    if brand is None:
+        raise AppError(404, "Restaurant not found", "not_found")
+
+    old_val = {"owner_id": brand.owner_id, "is_claimed": brand.is_claimed}
+    brand.owner_id = owner.id
+    brand.is_claimed = True
+    brand.claimed_at = datetime.now(timezone.utc)
+
+    claim.status = "approved"
+    claim.reviewed_by = admin_sub
+    claim.reviewed_at = datetime.now(timezone.utc)
+    claim.reviewer_notes = reviewer_notes
+
+    await audit_service.log(
+        db,
+        table_name="restaurant_brand",
+        record_id=brand.id,
+        action="update",
+        actor_id=admin_sub,
+        actor_role="admin",
+        old_val=old_val,
+        new_val={"owner_id": brand.owner_id, "is_claimed": brand.is_claimed},
+    )
+    await db.commit()
+    await db.refresh(claim)
+    return claim
+
+
+async def reject_claim(
+    db: AsyncSession, claim_id: int, admin_sub: str, reviewer_notes: str
+) -> ClaimRequest:
+    claim = await _get_pending_claim_or_404(db, claim_id)
+    claim.status = "rejected"
+    claim.reviewed_by = admin_sub
+    claim.reviewed_at = datetime.now(timezone.utc)
+    claim.reviewer_notes = reviewer_notes
+    await db.commit()
+    await db.refresh(claim)
+    return claim

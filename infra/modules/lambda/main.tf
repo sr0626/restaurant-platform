@@ -6,8 +6,13 @@ locals {
     managed_by  = "terraform"
   }
 
-  api_function_name          = "${var.project}-api-${var.env}"
-  deal_expiry_function_name  = "${var.project}-deal-expiry-${var.env}"
+  # Parameterized on var.service_name (default "api") so a second service is
+  # a copy-paste `module "lambda"` block with a different service_name, not
+  # a naming-convention redesign — see DECISIONS.md "Multi-service scaling".
+  # deal_expiry stays fixed: it's a single cross-service cron job, not
+  # per-service, so it does not take service_name.
+  service_function_name     = "${var.project}-${var.service_name}-${var.env}"
+  deal_expiry_function_name = "${var.project}-deal-expiry-${var.env}"
 }
 
 # -------------------------------------------------------------------
@@ -32,7 +37,7 @@ data "archive_file" "deal_expiry_placeholder" {
 # logs:CreateLogGroup permission and retention is enforced.
 # -------------------------------------------------------------------
 resource "aws_cloudwatch_log_group" "api" {
-  name              = "/aws/lambda/${local.api_function_name}"
+  name              = "/aws/lambda/${local.service_function_name}"
   retention_in_days = 30
 
   tags = local.common_tags
@@ -65,7 +70,7 @@ resource "aws_cloudwatch_log_group" "deal_expiry" {
 # same pattern this module already used for the old zip's filename/hash.
 # -------------------------------------------------------------------
 resource "aws_lambda_function" "api" {
-  function_name = local.api_function_name
+  function_name = local.service_function_name
   package_type  = "Image"
   image_uri     = var.lambda_image_uri
   role          = var.api_lambda_role_arn

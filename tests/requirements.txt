@@ -1,0 +1,37 @@
+# QA test-tooling dependencies — owned by the QA agent (see tests/CLAUDE.md
+# "Stack"). Kept separate from backend/requirements.txt, which is
+# Architect/Backend Dev's own dependency file for the deployed app.
+#
+# NOTE on versions: backend/requirements.txt pins exact versions targeting
+# Python 3.12 (the deployed Lambda runtime). This sandbox's only available
+# interpreter is Python 3.14 (no pyenv/3.12 available, no docker to build
+# one). Several of the app's exact pins (sqlalchemy==2.0.36, pydantic==2.10.3,
+# fastapi==0.111.1) have no prebuilt wheel for 3.14 and fail to build from
+# source (pydantic-core's pyo3 build caps at Python 3.13). Running the actual
+# test suite locally therefore requires newer, 3.14-compatible versions of
+# those same libraries — this file intentionally does NOT pin the exact
+# backend versions. This is a local test-execution accommodation only;
+# backend/requirements.txt was not modified, and the application code under
+# test is unchanged. In CI/CD targeting the real Python 3.12 Lambda runtime,
+# this suite should run fine against the exact backend/requirements.txt pins.
+
+pytest>=8
+pytest-asyncio>=0.24
+pytest-httpx>=0.30
+httpx>=0.27
+factory_boy>=3.3
+faker>=25
+aiosqlite>=0.20
+
+# Backend app dependencies needed to import/exercise app code under test.
+# Kept unpinned (min-version only) for the Python 3.14 compatibility reason
+# above — see backend/requirements.txt for the source-of-truth exact pins
+# used at deploy time.
+sqlalchemy[asyncio]>=2.0.36
+asyncpg>=0.30.0
+geoalchemy2>=0.15.2
+pydantic>=2.10.3
+fastapi>=0.111.1
+mangum>=0.17.0
+boto3>=1.35.36
+pyjwt[crypto]>=2.9.0

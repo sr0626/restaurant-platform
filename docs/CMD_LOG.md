@@ -31,6 +31,21 @@ git push -u origin docs/cmd-log-updates   # claude
 gh pr create --base main --head docs/cmd-log-updates   # claude
 git merge origin/main   # claude  (resolved devops/CLAUDE.md add/add conflict on docs/environment-promotion-strategy)
 git push origin docs/environment-promotion-strategy   # claude
+git merge main   # claude  (resolved architect/CLAUDE.md add/add conflict on docs/architect-approval-gate)
+git push -u origin docs/architect-approval-gate   # claude
+gh pr create --base main --head docs/architect-approval-gate   # claude
+```
+
+## 2026-09-13
+```bash
+git push -u origin integration/phase1-backend-full   # claude
+git push -u origin feature/phase1-frontend-scaffold   # claude
+git push -u origin infra/service-name-and-state-key   # claude
+git push -u origin infra/lambda-cognito-listusers   # claude
+gh pr create --base main --head integration/phase1-backend-full   # claude
+gh pr create --base main --head feature/phase1-frontend-scaffold   # claude
+gh pr create --base main --head infra/service-name-and-state-key   # claude
+gh pr create --base main --head infra/lambda-cognito-listusers   # claude
 ```
 
 ## 2026-09-13

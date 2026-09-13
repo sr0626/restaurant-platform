@@ -151,11 +151,28 @@ Every agent, every task, follows this flow — codified per-agent in each
    (and blocked by branch protection regardless).
 4. Open the PR against `main` (`gh pr create`) once pushed.
 5. **The Architect agent reviews every PR — schema, backend, frontend,
-   infra, devops, tests alike — and adds review comments.** Architect
-   doesn't need infra/frontend expertise to catch scope creep, missing
-   tests, or a mismatch with `docs/DECISIONS.md`; that's the point of a
-   single consistent review gate. Exception: a PR Architect itself opened
-   skips Architect self-review and goes straight to human review.
+   infra, devops, tests alike — and posts an explicit confirmation/approval
+   verdict, not just observations** (added 2026-09-12). Architect doesn't
+   need infra/frontend expertise to catch scope creep, missing tests, or a
+   mismatch with `docs/DECISIONS.md`; that's the point of a single
+   consistent review gate. The review comment must end with an unambiguous
+   verdict line — e.g. "Architect approval: ready to merge" or "Architect:
+   do not merge until X is addressed" — so there's a clear go/no-go, not
+   just notes. **The PR is only surfaced to the human for their own
+   approval after that confirmation is posted** — don't hand a PR to the
+   human as "ready for you" before Architect's verdict exists. Exception:
+   a PR Architect itself opened skips Architect self-review (no one
+   designated to review the reviewer) and goes straight to human review,
+   as before.
+   **When Architect finds a real problem, it doesn't just comment and stop
+   (added 2026-09-13)** — it gets the responsible dev agent to fix it,
+   re-verifies the fix, and only then posts the verdict comment, written
+   like a human tech lead's PR comment (what was checked, what was found,
+   what got fixed and how it was verified, then the go/no-go) — not a raw
+   problem dump the human has to act on themselves. See
+   `architect/CLAUDE.md` "Code Review" for the exact loop and its
+   escalate-to-human boundary (one retry, then stop if it's not resolving
+   or the fix needs a real product decision).
 6. **The human manually approves and merges. No agent ever merges a PR —
    its own or anyone else's — under any circumstance.**
 
@@ -243,6 +260,13 @@ indirectly and must follow the same principles:
   retention: current + 2 prior) — never delete an old version's file in the
   same change that creates a new one. Only clean up the oldest once a 4th
   version file would otherwise exist.
+- ALWAYS put BRD updates on a PR the same as anything else (branch
+  protection on `main` requires this, no exceptions by file type — added
+  2026-09-12) — BUT skip Architect's review gate for a BRD-only PR and
+  surface it to the human immediately for a fast merge. It's a business
+  document the user needs to see on disk quickly, not code needing a
+  consistency review; the n-2 retention promise only holds if the merge
+  happens fast, not if it queues behind a full review cycle.
 
 ## Decision-Making Autonomy (standing rule, added 2026-09-12)
 Architect and the orchestrator make the call on ambiguous design/schema/

@@ -94,11 +94,19 @@ resource "aws_rds_cluster_instance" "main" {
 # PostGIS is enabled via Alembic migration (CREATE EXTENSION postgis) — not here
 ```
 
-### ECR (added 2026-09-12 — see DECISIONS.md "Containerization")
+### ECR (added 2026-09-12 — see DECISIONS.md "Containerization"; `service_name`
+### added 2026-09-12 — see DECISIONS.md "Multi-service scaling")
 ```hcl
+# /infra/modules/ecr/variables.tf
+variable "service_name" {
+  description = "Service identifier for naming: \"${project}-${service_name}-${env}\""
+  type        = string
+  default     = "api"   # existing single-service call site stays unaffected
+}
+
 # /infra/modules/ecr/main.tf
 resource "aws_ecr_repository" "api" {
-  name                 = "${var.project}-api-${var.env}"
+  name                 = "${var.project}-${var.service_name}-${var.env}"
   image_tag_mutability = "IMMUTABLE"   # never overwrite a pushed tag
   image_scanning_configuration { scan_on_push = true }
   tags = local.common_tags
@@ -117,13 +125,24 @@ resource "aws_ecr_lifecycle_policy" "api" {
 }
 # The repo is Infra's resource. Building images and pushing to it is the
 # DevOps agent's job (see /devops/CLAUDE.md) — not done here, not done by Terraform.
+# A second service is a second `module "ecr"` block in root main.tf passing
+# service_name = "notifications" (or similar) — not a rename of this module.
 ```
 
-### Lambda + API Gateway (container image, not zip — see DECISIONS.md "Containerization")
+### Lambda + API Gateway (container image, not zip — see DECISIONS.md
+### "Containerization"; `service_name` added 2026-09-12 — see DECISIONS.md
+### "Multi-service scaling")
 ```hcl
+# /infra/modules/lambda/variables.tf
+variable "service_name" {
+  description = "Service identifier for the API-style Lambda's naming: \"${project}-${service_name}-${env}\""
+  type        = string
+  default     = "api"   # existing single-service call site stays unaffected
+}
+
 # /infra/modules/lambda/main.tf
 resource "aws_lambda_function" "api" {
-  function_name = "${var.project}-api-${var.env}"
+  function_name = "${var.project}-${var.service_name}-${var.env}"
   package_type  = "Image"
   image_uri     = var.lambda_image_uri   # "<ecr_repo_url>:<tag-or-digest>" — set by DevOps's deploy step, not hand-edited
   role          = aws_iam_role.lambda.arn
@@ -157,6 +176,13 @@ resource "aws_apigatewayv2_api" "main" {
   }
   tags = local.common_tags
 }
+# aws_apigatewayv2_api.main's name intentionally does NOT take service_name —
+# it has no "-api-" segment today, so it's left as a project/env-level
+# resource, not parameterized alongside the Lambda function name. Likewise
+# the deal-expiry Lambda in this same module keeps its fixed name (a single
+# cross-service cron job, not per-service). A second service is a second
+# `module "lambda"` block in root main.tf passing service_name =
+# "notifications" (or similar) — not a rename of this module.
 ```
 
 ### Cognito User Pool
@@ -274,7 +300,12 @@ resource "aws_scheduler_schedule" "deal_expiry" {
 ## IAM Least-Privilege Rules
 Every Lambda gets its own IAM role with only the permissions it needs:
 ```hcl
-# API Lambda needs: RDS connect, S3 put (presigned), SES send, Secrets Manager get
+# API Lambda needs: RDS connect, S3 put (presigned), SES send, Secrets Manager get,
+#   Cognito ListUsers (read-only, single user pool ARN — resolves a location
+#   manager's email to their Cognito sub for manager assignment; added
+#   2026-09-13, see modules/iam/main.tf "CognitoListUsersForManagerAssignment".
+#   No AdminCreateUser/AdminDeleteUser/AdminAddUserToGroup or any other
+#   Cognito action — ListUsers only, one pool ARN, never a wildcard resource)
 # Deal expiry Lambda needs: RDS connect only
 # Resize Lambda needs: S3 get (raw/), S3 put (processed/), S3 delete (raw/)
 # NEVER use a single shared Lambda role for all functions
@@ -316,11 +347,14 @@ config change, not a rename/migration.
 
 - **State key:** `envs/<env>/terraform.tfstate` in the shared state bucket
   (`restaurant-platform-tfstate-sr0626`), e.g. `envs/dev/terraform.tfstate`,
-  `envs/test/terraform.tfstate`, `envs/prod/terraform.tfstate`. (Current
-  `backend.tf` still has the placeholder key `phase1/terraform.tfstate` from
-  before this convention was decided — the next Infra task that touches
-  `backend.tf` should migrate it to `envs/dev/terraform.tfstate` via
-  `terraform state mv`/re-init, human-run, not a silent rename.) Phase is a
+  `envs/test/terraform.tfstate`, `envs/prod/terraform.tfstate`. `backend.tf`
+  now declares `envs/dev/terraform.tfstate` (updated 2026-09-12, replacing
+  the earlier placeholder `phase1/terraform.tfstate`) — but that's only the
+  code-side declaration. **The existing remote state object has not been
+  moved to the new key.** A human must run `terraform init -migrate-state`
+  (or an equivalent manual `aws s3 cp` + `terraform init -reconfigure`) once,
+  against the real backend, before the next `terraform plan`/`apply` — see
+  the migration comment in `backend.tf` itself for exact steps. Phase is a
   resource tag (`var.phase`), not a state partition — don't key state by
   phase, only by environment.
 - **Var-files:** one per environment, `infra/envs/<env>.tfvars` (gitignored,

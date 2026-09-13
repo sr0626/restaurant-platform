@@ -8,7 +8,7 @@
 #   ecr         (no deps)
 #   cognito     → ses
 #   aurora      → networking
-#   iam         → aurora, s3, ecr, (stripe secrets defined inline)
+#   iam         → aurora, s3, ecr, cognito, (stripe secrets defined inline)
 #   lambda      → networking, iam, aurora, cognito, s3, ecr (image_uri)
 #   eventbridge → lambda
 #   amplify     → lambda, cognito, s3
@@ -54,13 +54,19 @@ module "s3" {
 # ECR — backend API container image repository (added 2026-09-12, see
 # DECISIONS.md "Containerization"). Building/pushing images is DevOps's
 # job; Terraform only owns the repo resource.
+#
+# service_name = "api" is explicit here (matches the module's own default)
+# per DECISIONS.md "Multi-service scaling" — a second service later is a
+# second `module "ecr"` block below with a different service_name, not a
+# rename of this one.
 # -------------------------------------------------------------------
 module "ecr" {
   source = "./modules/ecr"
 
-  env     = var.env
-  project = var.project
-  phase   = var.phase
+  env          = var.env
+  project      = var.project
+  phase        = var.phase
+  service_name = "api"
 }
 
 # -------------------------------------------------------------------
@@ -145,12 +151,17 @@ module "iam" {
   aws_region = var.aws_region
   account_id = data.aws_caller_identity.current.account_id
 
+  # service_name = "api" matches module.ecr / module.lambda's own service_name
+  # below — scopes github_actions.tf's local.api_lambda_arn to this Lambda.
+  service_name = "api"
+
   media_bucket_arn          = module.s3.media_bucket_arn
   db_secret_arn             = module.aurora.db_secret_arn
   stripe_secret_key_arn     = aws_secretsmanager_secret.stripe_secret_key.arn
   stripe_webhook_secret_arn = aws_secretsmanager_secret.stripe_webhook_secret.arn
   ecr_repository_arn        = module.ecr.repository_arn
   github_repo_url           = var.github_repo_url
+  cognito_user_pool_arn     = module.cognito.user_pool_arn
 }
 
 # -------------------------------------------------------------------
@@ -192,6 +203,13 @@ module "lambda" {
   project    = var.project
   phase      = var.phase
   aws_region = var.aws_region
+
+  # service_name = "api" is explicit here (matches the module's own default)
+  # per DECISIONS.md "Multi-service scaling" — a second service later is a
+  # second `module "lambda"` block below with a different service_name.
+  # Does not affect the deal-expiry Lambda in this same module (single
+  # cross-service cron job) or the shared API Gateway resource.
+  service_name = "api"
 
   vpc_id       = module.networking.vpc_id
   subnet_ids   = module.networking.private_subnet_ids

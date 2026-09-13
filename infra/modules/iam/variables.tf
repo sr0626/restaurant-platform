@@ -15,6 +15,22 @@ variable "phase" {
   default     = "phase1"
 }
 
+variable "service_name" {
+  description = <<-EOT
+    Service identifier for the API-style Lambda this GitHub Actions deploy
+    role is scoped to (github_actions.tf's local.api_lambda_arn), matching
+    the same var.service_name passed to module "ecr" / module "lambda" for
+    this service. Defaults to "api" so the existing single-service call site
+    is unaffected. See DECISIONS.md "Multi-service scaling". A second
+    service's deploy role/policy would be added as new resources in this
+    module (the GitHub OIDC provider is an account-level singleton, so this
+    module is not copy-pasted per service the way ecr/lambda are) — not
+    handled by this variable alone.
+  EOT
+  type        = string
+  default     = "api"
+}
+
 variable "aws_region" {
   description = "AWS region — used to construct ARNs in IAM policy documents"
   type        = string
@@ -52,6 +68,11 @@ variable "ecr_repository_arn" {
 
 variable "github_repo_url" {
   description = "GitHub HTTPS URL of this repo (e.g. https://github.com/org/repo) — same value passed to the amplify module; used to scope the GitHub Actions OIDC trust policy's sub claim to this exact repo"
+  type        = string
+}
+
+variable "cognito_user_pool_arn" {
+  description = "Cognito User Pool ARN (module.cognito) — scopes the API Lambda's cognito-idp:ListUsers permission to this single pool, used to resolve a manager's email to their Cognito sub when assigning location managers"
   type        = string
 }
 
