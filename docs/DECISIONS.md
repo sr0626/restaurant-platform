@@ -443,6 +443,50 @@ backend and infra CI only.
 
 ## Database & Data Model
 
+**Owner-scoped restaurant list: bare `GET /restaurants`, not `/restaurants/mine` or a `/search` variant**
+2026-09-13 | Architect decision, made while writing the contract to unblock
+the owner portal dashboard (there was no way for an authenticated owner to
+discover their own brands — `GET /restaurants` only supported the existing
+id-or-slug lookup). Resolved by overloading the bare `GET /restaurants`
+route on caller role rather than adding a new top-level route: an owner
+caller is implicitly filtered to `owner_id = current_user.id` with no
+query param able to widen that (never trust a client-supplied owner
+filter for a non-admin, same posture as `PATCH /auth/me`'s self-scoped
+write); an admin caller gets an optional `owner_id` filter, omitted
+returns all brands, paginated. Not a duplicate of `GET /search`: `/search`
+is the public geo/filter discovery endpoint with no auth and no ownership
+concept, while this is "what do I own," auth-gated, with no geo component
+at all. Consistent with how `GET /restaurants/{id}` already overloads on
+caller intent (id vs. slug, see below) instead of spawning new top-level
+routes for each variant lookup.
+*Rejected: a new `/restaurants/mine` route (works, but breaks the
+established pattern of overloading the existing route on caller
+intent/role rather than adding a route per variant — see the id-or-slug
+precedent below), extending `/search` with an owner-scoped mode (conflates
+two endpoints with fundamentally different auth models and no shared geo
+component; `/search` must stay public)*
+
+**Cuisine tags: public read endpoint (`GET /cuisine-tags`), no pagination**
+2026-09-13 | Architect decision, closing a gap flagged during PR #17
+review: the homepage's cuisine filter chips were a hardcoded frontend
+constant with no backend source of truth, risking silent drift from the
+real `cuisine_tag` table. Added `GET /cuisine-tags` (public, optional
+`category` filter, `is_active=true` only) as its own top-level endpoint
+family rather than a sub-resource of `/restaurants` or `/search` —
+`cuisine_tag` isn't owned by a brand or location, it's a standalone
+admin-seeded taxonomy table both `/search`'s filters and the owner
+portal's tag picker need to resolve against. No pagination: same
+reasoning already used for `GET /locations/{id}/managers` not needing
+it — `cuisine_tag` is a small, effectively-static seeded table
+(`docs/TAXONOMY.md`), not a growing collection.
+*Rejected: keeping the cuisine list as a frontend-only constant (the
+actual problem being fixed — no source-of-truth, silent drift risk),
+paginating the response (adds shape with no real list-size problem to
+solve), folding it into `/search`'s response as embedded metadata
+(couples an unrelated taxonomy lookup to a geo-search call, and the tag
+picker on `POST/PATCH /restaurants` needs the same list with no search
+context at all)*
+
 **Restaurant lookup by id or slug: `GET /restaurants/{id}` resolves either, not a separate route**
 2026-09-13 | Architect decision, made while reviewing PR #8 (frontend
 scaffold). Frontend Dev's `getRestaurantBySlug` (matching
