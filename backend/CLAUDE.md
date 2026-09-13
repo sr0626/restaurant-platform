@@ -213,6 +213,7 @@ These routes are explicitly public — all others require auth:
 - `GET /restaurants/{id}`
 - `GET /restaurants/{id}/locations`
 - `GET /locations/{id}`
+- `GET /cuisine-tags`
 
 ## Environment Variables (never hardcode these)
 ```

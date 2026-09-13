@@ -81,4 +81,6 @@ git push -u origin fix/next-config-js   # claude  (next.config.ts -> .mjs fix, n
 gh pr create --base main --head fix/next-config-js   # claude  (no pre-approval needed, per relaxed push rule)
 git push -u origin docs/api-contracts-restaurants-list-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
 gh pr create --base main --head docs/api-contracts-restaurants-list-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
+git push -u origin feature/restaurants-list-and-cuisine-tags   # claude  (Gap A/B endpoint implementation, no pre-approval needed, per relaxed push rule)
+gh pr create --base main --head feature/restaurants-list-and-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
 ```

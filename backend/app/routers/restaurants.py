@@ -2,25 +2,51 @@
 (restaurant_brand)".
 
 Public: GET /restaurants/{id}, GET /restaurants/{id}/locations
-(backend/CLAUDE.md "Public Routes"). Everything else requires auth.
+(backend/CLAUDE.md "Public Routes"). Everything else requires auth,
+including the owner/admin-scoped list below (bare GET /restaurants).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies.auth import CurrentUser, require_admin, require_brand_write_access, require_owner
+from app.dependencies.auth import (
+    CurrentUser,
+    require_admin,
+    require_brand_write_access,
+    require_owner,
+    require_owner_or_admin,
+)
 from app.dependencies.db import get_db
 from app.dependencies.pagination import Pagination, pagination_params
 from app.schemas.restaurant import (
     LocationListResponse,
     RestaurantCreate,
+    RestaurantListResponse,
     RestaurantOut,
     RestaurantUpdate,
 )
 from app.services import location_service, restaurant_service
 
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
+
+
+@router.get("", response_model=RestaurantListResponse)
+async def list_restaurants(
+    owner_id: int | None = Query(
+        default=None,
+        description="Admin only — ignored for an owner caller, who is always "
+        "filtered to their own owner_id regardless of this param.",
+    ),
+    pagination: Pagination = Depends(pagination_params),
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(require_owner_or_admin),
+) -> RestaurantListResponse:
+    """Auth: owner or admin. Owner caller: hard-filtered server-side to
+    their own brands, no query param can widen this. Admin caller: the
+    optional `owner_id` query param, omitted returns all brands
+    (docs/API_CONTRACTS.md "GET /restaurants")."""
+    return await restaurant_service.list_restaurants(db, current_user, owner_id, pagination)
 
 
 @router.get("/{id_or_slug}", response_model=RestaurantOut)
