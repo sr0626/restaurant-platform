@@ -42,3 +42,33 @@ export function StarIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Added for the restaurant detail page's weekly hours section. */
+export function ClockIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.25V12l3.25 2" />
+    </svg>
+  );
+}
+
+/** Added for the restaurant detail page's contact/phone line. */
+export function PhoneIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M6.5 4h3l1.5 4-2 1.5a11 11 0 0 0 5.5 5.5l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 4.5 6a2 2 0 0 1 2-2z" />
+    </svg>
+  );
+}
+
+/** Added for the restaurant detail page's photo gallery section. */
+export function ImageIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="M3.5 16l5-5 4 4 3-3 4.5 4.5" />
+    </svg>
+  );
+}

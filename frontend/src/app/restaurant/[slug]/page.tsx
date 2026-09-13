@@ -2,24 +2,40 @@
 // frontend/CLAUDE.md's "SSR listing page (SEO critical)" and "schema.org
 // Restaurant markup (required on every listing page)" Key Patterns.
 //
-// The visual layout below is intentionally a bare placeholder (pending the
-// homepage/search color/style decision) — but the SEO plumbing (SSR,
-// generateMetadata, JSON-LD, canonical, 404 handling) is real, since none
-// of that depends on a visual direction.
+// The SEO plumbing (SSR, generateMetadata, JSON-LD, canonical, 404
+// handling) predates this change and is untouched; this pass adds the
+// real visual UI on top of it (hero, hours, gallery, unclaimed CTA) —
+// see the components in `components/restaurant/`.
+//
+// No full-menu section here: `docs/API_CONTRACTS.md` has no menu endpoint
+// in Phase 1 ("Full menu with prices is not in this response — no menu
+// endpoint exists in Phase 1"), and root CLAUDE.md's DECISIONS.md-linked
+// "Full menu with prices moved to free tier" note describes a *future*
+// free-tier behavior, not a data model that exists yet. Building menu UI
+// with nothing behind it would mean fabricating content, which the task
+// brief explicitly rules out — this is deferred to whenever Phase 2's
+// menu data model lands, called out again in the PR description.
 //
 // FLAGGED JUDGMENT CALL (see final report): frontend/CLAUDE.md's example
 // schema builds address/telephone/openingHours straight off the fetched
 // restaurant, but docs/API_CONTRACTS.md splits that data across
 // restaurant_brand (name, description, cuisine_tags) and
 // restaurant_location (address, phone, hours). This page fetches the
-// brand by slug, then its first/primary location, and merges both into
-// the JSON-LD — a brand with zero locations yet renders schema without an
-// address rather than failing.
+// brand by slug, then its first/primary location's full detail (hours,
+// gallery, cover photo), and merges both into the JSON-LD — a brand with
+// zero locations yet renders schema without an address rather than
+// failing.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
 import { getRestaurantBySlug, getRestaurantLocations } from "@/lib/api/restaurants";
-import type { LocationSummary } from "@/types/location";
+import { getLocationById } from "@/lib/api/locations";
+import RestaurantHero from "@/components/restaurant/RestaurantHero";
+import RestaurantHours from "@/components/restaurant/RestaurantHours";
+import RestaurantGallery from "@/components/restaurant/RestaurantGallery";
+import ClaimCTA from "@/components/restaurant/ClaimCTA";
+import TopBar from "@/components/home/TopBar";
+import type { LocationDetail } from "@/types/location";
 import type { RestaurantBrand } from "@/types/restaurant";
 
 interface RestaurantPageProps {
@@ -28,7 +44,9 @@ interface RestaurantPageProps {
 
 interface RestaurantPageData {
   restaurant: RestaurantBrand;
-  primaryLocation: LocationSummary | null;
+  /** Full detail (hours, gallery, cover photo) for the brand's primary
+   * location — null when the brand has no locations yet. */
+  location: LocationDetail | null;
 }
 
 async function loadRestaurantPageData(slug: string): Promise<RestaurantPageData | null> {
@@ -43,7 +61,12 @@ async function loadRestaurantPageData(slug: string): Promise<RestaurantPageData 
   }
 
   const locations = await getRestaurantLocations(restaurant.id, { page: 1, page_size: 1 });
-  return { restaurant, primaryLocation: locations.results[0] ?? null };
+  const primaryLocationSummary = locations.results[0] ?? null;
+  const location = primaryLocationSummary
+    ? await getLocationById(primaryLocationSummary.id)
+    : null;
+
+  return { restaurant, location };
 }
 
 export async function generateMetadata({ params }: RestaurantPageProps): Promise<Metadata> {
@@ -51,11 +74,11 @@ export async function generateMetadata({ params }: RestaurantPageProps): Promise
   if (!data) {
     return { title: "Restaurant Not Found" };
   }
-  const { restaurant, primaryLocation } = data;
+  const { restaurant, location } = data;
 
   // frontend/CLAUDE.md SEO Requirements meta title format:
   // "{Restaurant Name} — Indian Restaurant in {City}, {State}"
-  const cityState = primaryLocation ? ` in ${primaryLocation.city}, ${primaryLocation.state}` : "";
+  const cityState = location ? ` in ${location.city}, ${location.state}` : "";
 
   return {
     title: `${restaurant.name} — Indian Restaurant${cityState}`,
@@ -69,7 +92,20 @@ export async function generateMetadata({ params }: RestaurantPageProps): Promise
   };
 }
 
-function buildRestaurantSchema(restaurant: RestaurantBrand, location: LocationSummary | null) {
+/** schema.org day abbreviations, indexed the same 0=Monday..6=Sunday way
+ * as `restaurant_hours.day_of_week` (docs/DATA_MODEL.md). */
+const SCHEMA_DAY_ABBREVIATIONS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+/** Builds schema.org `openingHours` strings (e.g. "Mo 11:00-22:00") from
+ * the real `hours` rows — omits closed/unknown days rather than guessing,
+ * matching frontend/CLAUDE.md's "schema.org Restaurant markup" pattern. */
+function buildOpeningHoursSchema(location: LocationDetail): string[] {
+  return location.hours
+    .filter((hour) => hour.is_closed === false && hour.open_time && hour.close_time)
+    .map((hour) => `${SCHEMA_DAY_ABBREVIATIONS[hour.day_of_week]} ${hour.open_time!.slice(0, 5)}-${hour.close_time!.slice(0, 5)}`);
+}
+
+function buildRestaurantSchema(restaurant: RestaurantBrand, location: LocationDetail | null) {
   return {
     "@context": "https://schema.org",
     "@type": "Restaurant",
@@ -85,6 +121,7 @@ function buildRestaurantSchema(restaurant: RestaurantBrand, location: LocationSu
             postalCode: location.postal_code,
           },
           telephone: location.phone,
+          openingHours: buildOpeningHoursSchema(location),
         }
       : {}),
   };
@@ -95,20 +132,30 @@ export default async function RestaurantPage({ params }: RestaurantPageProps) {
   if (!data) {
     notFound();
   }
-  const { restaurant, primaryLocation } = data;
+  const { restaurant, location } = data;
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(buildRestaurantSchema(restaurant, primaryLocation)),
+          __html: JSON.stringify(buildRestaurantSchema(restaurant, location)),
         }}
       />
-      <main>
-        <h1>{restaurant.name}</h1>
-        {!restaurant.is_claimed && <p>Unclaimed listing — claim this listing.</p>}
-        <p>Under construction — full listing page is pending the homepage/search visual design decision.</p>
+      <main className="min-h-screen bg-brand-bg">
+        <TopBar />
+
+        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+          <RestaurantHero restaurant={restaurant} location={location} />
+
+          <div className="mt-8 flex flex-col gap-8">
+            {!restaurant.is_claimed && <ClaimCTA brandId={restaurant.id} />}
+
+            {location && location.hours.length > 0 && <RestaurantHours hours={location.hours} />}
+
+            {location && <RestaurantGallery photos={location.gallery_photos} />}
+          </div>
+        </div>
       </main>
     </>
   );
