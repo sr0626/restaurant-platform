@@ -274,7 +274,12 @@ resource "aws_scheduler_schedule" "deal_expiry" {
 ## IAM Least-Privilege Rules
 Every Lambda gets its own IAM role with only the permissions it needs:
 ```hcl
-# API Lambda needs: RDS connect, S3 put (presigned), SES send, Secrets Manager get
+# API Lambda needs: RDS connect, S3 put (presigned), SES send, Secrets Manager get,
+#   Cognito ListUsers (read-only, single user pool ARN — resolves a location
+#   manager's email to their Cognito sub for manager assignment; added
+#   2026-09-13, see modules/iam/main.tf "CognitoListUsersForManagerAssignment".
+#   No AdminCreateUser/AdminDeleteUser/AdminAddUserToGroup or any other
+#   Cognito action — ListUsers only, one pool ARN, never a wildcard resource)
 # Deal expiry Lambda needs: RDS connect only
 # Resize Lambda needs: S3 get (raw/), S3 put (processed/), S3 delete (raw/)
 # NEVER use a single shared Lambda role for all functions

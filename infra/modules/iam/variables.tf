@@ -55,3 +55,8 @@ variable "github_repo_url" {
   type        = string
 }
 
+variable "cognito_user_pool_arn" {
+  description = "Cognito User Pool ARN (module.cognito) — scopes the API Lambda's cognito-idp:ListUsers permission to this single pool, used to resolve a manager's email to their Cognito sub when assigning location managers"
+  type        = string
+}
+
