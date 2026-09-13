@@ -137,7 +137,7 @@ Every write request must be validated server-side:
 - Commit messages: `feat:`, `fix:`, `test:`, `infra:`, `docs:`
 - No commits directly to `main`
 
-### Git Workflow (standing rule, added 2026-09-12 — no exceptions)
+### Git Workflow (standing rule, added 2026-09-12, push gate relaxed 2026-09-13 — no exceptions otherwise)
 Every agent, every task, follows this flow — codified per-agent in each
 `CLAUDE.md`'s guardrails too:
 1. **Create a feature branch before making any change.** Prefix matches the
@@ -145,17 +145,34 @@ Every agent, every task, follows this flow — codified per-agent in each
    write directly on `main`.
 2. Commit to that branch as work progresses (commit freely — no permission
    needed for a local commit on a feature branch, same as always).
-3. **Pushing the branch and opening the PR both require the same per-action
-   explicit permission as any `git push`** (see "NEVER — Session Control"
-   below) — this didn't change, it now also covers feature branches, not
-   just `main`.
+3. **Pushing a feature branch and opening its PR (`gh pr create`) do NOT
+   need per-action human approval** (changed 2026-09-13 — see "NEVER —
+   Session Control" below). Direct push to `main` remains forbidden
+   (and blocked by branch protection regardless).
 4. Open the PR against `main` (`gh pr create`) once pushed.
 5. **The Architect agent reviews every PR — schema, backend, frontend,
-   infra, devops, tests alike — and adds review comments.** Architect
-   doesn't need infra/frontend expertise to catch scope creep, missing
-   tests, or a mismatch with `docs/DECISIONS.md`; that's the point of a
-   single consistent review gate. Exception: a PR Architect itself opened
-   skips Architect self-review and goes straight to human review.
+   infra, devops, tests alike — and posts an explicit confirmation/approval
+   verdict, not just observations** (added 2026-09-12). Architect doesn't
+   need infra/frontend expertise to catch scope creep, missing tests, or a
+   mismatch with `docs/DECISIONS.md`; that's the point of a single
+   consistent review gate. The review comment must end with an unambiguous
+   verdict line — e.g. "Architect approval: ready to merge" or "Architect:
+   do not merge until X is addressed" — so there's a clear go/no-go, not
+   just notes. **The PR is only surfaced to the human for their own
+   approval after that confirmation is posted** — don't hand a PR to the
+   human as "ready for you" before Architect's verdict exists. Exception:
+   a PR Architect itself opened skips Architect self-review (no one
+   designated to review the reviewer) and goes straight to human review,
+   as before.
+   **When Architect finds a real problem, it doesn't just comment and stop
+   (added 2026-09-13)** — it gets the responsible dev agent to fix it,
+   re-verifies the fix, and only then posts the verdict comment, written
+   like a human tech lead's PR comment (what was checked, what was found,
+   what got fixed and how it was verified, then the go/no-go) — not a raw
+   problem dump the human has to act on themselves. See
+   `architect/CLAUDE.md` "Code Review" for the exact loop and its
+   escalate-to-human boundary (one retry, then stop if it's not resolving
+   or the fix needs a real product decision).
 6. **The human manually approves and merges. No agent ever merges a PR —
    its own or anyone else's — under any circumstance.**
 
@@ -196,12 +213,14 @@ indirectly and must follow the same principles:
 - NEVER delete or truncate any DB table or S3 bucket
 - NEVER modify files outside your designated directory without explicit instruction
 
-### NEVER — Session Control (no exceptions, standing rule)
-- NEVER run `git push` on your own authority, even if a previous push in this
-  session was approved. Every push needs its own explicit go-ahead from the
-  human — either they type the command themselves, or they say yes to this
-  specific push. Approving one push does not carry over to the next. Applies
-  to feature-branch pushes and `gh pr create` exactly the same as `main`.
+### NEVER — Session Control (no exceptions except where noted, standing rule)
+- **Feature-branch `git push` and `gh pr create` do NOT need per-action
+  human approval** (changed 2026-09-13 — user decision, see
+  `docs/DECISIONS.md`). Push and open the PR as part of finishing the work;
+  the human's checkpoint is now the PR merge, after Architect review, not
+  the push.
+- NEVER push directly to `main`, under any circumstance — always go through
+  a feature branch and a PR (also blocked by branch protection).
 - NEVER work directly on `main` — create a feature branch first, every task,
   no exceptions (see "Git Workflow" above).
 - NEVER merge a pull request — yours or another agent's — for any reason.
@@ -212,13 +231,17 @@ indirectly and must follow the same principles:
   read-only-seeming commands (`aws s3 ls`, `aws sts get-caller-identity`) —
   ask first regardless. No standing approval accumulates across a session.
 - NEVER let a `git push` or an AWS CLI/SDK command go unlogged — see the
-  "ALWAYS — Command Log" rule below, no exceptions.
+  "ALWAYS — Command Log" rule below, no exceptions. This still applies even
+  though feature-branch pushes no longer need pre-approval — log after the
+  fact, same as before.
 
 ### ALWAYS — Command Log (no exceptions, standing rule)
 - ALWAYS record every `git push`, every AWS CLI/SDK command, and every
   `terraform plan`/`apply` in `docs/CMD_LOG.md` — grouped by date, in
   execution order, tagged `# user` or `# claude`. Keep it to just the
-  command list, no description or explanation.
+  command list, no description or explanation. Unchanged by the 2026-09-13
+  push-approval relaxation — every push still gets logged, it just no
+  longer needs a pre-approval before it happens.
 
 ### ALWAYS — Quality
 - ALWAYS write a test alongside every new endpoint, component, or Lambda
@@ -241,6 +264,13 @@ indirectly and must follow the same principles:
   changes (added 2026-09-13) — keep it short, bullets only, not verbose.
   Same as BRD: still needs a PR (branch protection), but skips Architect
   review for a fast human merge — it's a status snapshot, not code.
+- ALWAYS put BRD updates on a PR the same as anything else (branch
+  protection on `main` requires this, no exceptions by file type — added
+  2026-09-12) — BUT skip Architect's review gate for a BRD-only PR and
+  surface it to the human immediately for a fast merge. It's a business
+  document the user needs to see on disk quickly, not code needing a
+  consistency review; the n-2 retention promise only holds if the merge
+  happens fast, not if it queues behind a full review cycle.
 
 ## Decision-Making Autonomy (standing rule, added 2026-09-12)
 Architect and the orchestrator make the call on ambiguous design/schema/

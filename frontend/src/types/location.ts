@@ -1,0 +1,126 @@
+// Types for `restaurant_location` and its sub-resources (hours, photos),
+// matching docs/API_CONTRACTS.md "Locations (`restaurant_location`)".
+
+/** 0=Monday..6=Sunday, per docs/API_CONTRACTS.md GET /locations/{id} notes. */
+export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface LocationHour {
+  day_of_week: DayOfWeek;
+  open_time?: string;
+  close_time?: string;
+  /** null = "hours unknown" (day never seeded), never guessed. */
+  is_closed: boolean | null;
+}
+
+/** One entry from the sub-resource endpoints under /locations/{id}/photos. */
+export interface GalleryPhoto {
+  id: number;
+  url: string;
+  display_order: number;
+}
+
+/** Summary shape from GET /restaurants/{id}/locations. */
+export interface LocationSummary {
+  id: number;
+  location_name: string | null;
+  address_line1: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  phone: string;
+  is_verified: boolean;
+  is_paid: boolean;
+  /** true / false / null (hours unknown) — a display lookup, never a filter. */
+  is_open_now: boolean | null;
+}
+
+/** Full detail shape from GET /locations/{id}. */
+export interface LocationDetail {
+  id: number;
+  brand_id: number;
+  location_name: string | null;
+  address_line1: string;
+  address_line2: string | null;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  phone: string;
+  timezone: string;
+  latitude: number;
+  longitude: number;
+  is_verified: boolean;
+  is_paid: boolean;
+  is_open_now: boolean | null;
+  hours: LocationHour[];
+  cover_photo_url: string | null;
+  /** Up to 2 entries when is_paid=false, up to 10 when is_paid=true. */
+  gallery_photos: GalleryPhoto[];
+}
+
+/** Body for POST /locations. */
+export interface CreateLocationInput {
+  brand_id: number;
+  address_line1: string;
+  address_line2: string | null;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  phone: string;
+  timezone: string;
+  latitude: number;
+  longitude: number;
+}
+
+/**
+ * Body for PATCH /locations/{id}. Any subset of the address/contact/timezone
+ * fields — deliberately excludes is_paid, paid_until, stripe_sub_item_id,
+ * which are Stripe-webhook/admin-only writes (docs/API_CONTRACTS.md).
+ */
+export type UpdateLocationInput = Partial<
+  Omit<CreateLocationInput, "brand_id">
+>;
+
+/** Body for PUT /locations/{id}/hours. */
+export interface UpdateLocationHoursInput {
+  hours: Array<{
+    day_of_week: DayOfWeek;
+    open_time?: string;
+    close_time?: string;
+    is_closed: boolean | null;
+  }>;
+}
+
+export interface UpdateLocationHoursResponse {
+  hours: LocationHour[];
+}
+
+/** Body for POST /locations/{id}/photos/upload-url. */
+export interface PhotoUploadUrlInput {
+  content_type: string;
+}
+
+export interface PhotoUploadUrlResponse {
+  upload_url: string;
+  s3_key: string;
+  expires_in: number;
+}
+
+/** Body for POST /locations/{id}/photos. */
+export interface CreatePhotoInput {
+  s3_key: string;
+  is_cover: boolean;
+}
+
+/** Response shape shared by POST and PATCH /locations/{id}/photos[/{photo_id}]. */
+export interface Photo {
+  id: number;
+  location_id: number;
+  url: string;
+  is_cover: boolean;
+  display_order: number;
+}
+
+/** Body for PATCH /locations/{id}/photos/{photo_id}. */
+export type UpdatePhotoInput = Partial<Pick<Photo, "display_order" | "is_cover">>;

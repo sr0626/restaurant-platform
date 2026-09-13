@@ -20,7 +20,7 @@ locals {
 # resource itself, never an image inside it.
 # -------------------------------------------------------------------
 resource "aws_ecr_repository" "api" {
-  name                 = "${var.project}-api-${var.env}"
+  name                 = "${var.project}-${var.service_name}-${var.env}"
   image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {

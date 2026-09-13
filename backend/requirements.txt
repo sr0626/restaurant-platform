@@ -13,3 +13,29 @@ pydantic==2.10.3
 # Local dev convenience: loads DATABASE_URL from a gitignored .env file
 # so app/db/session.py doesn't need an exported shell variable.
 python-dotenv==1.0.1
+
+# ---------------------------------------------------------------------------
+# App-layer dependencies — owned by the Backend Dev agent (see
+# backend/CLAUDE.md "Stack"). Kept in this same file (not a separate one)
+# per this file's own header comment, added below Architect's schema-layer
+# pins above rather than intermixed with them.
+# ---------------------------------------------------------------------------
+
+fastapi==0.111.1
+mangum==0.17.0
+boto3==1.35.36
+
+# Cognito JWT verification (app/dependencies/auth.py) — RS256 verification
+# against Cognito's JWKS endpoint, no static secret stored anywhere.
+pyjwt[crypto]==2.9.0
+
+# Local dev server only (`uvicorn app.main:app --reload`) — the deployed
+# Lambda container image never runs this; Mangum wraps the ASGI app for
+# the Lambda runtime instead. Not used by app/ code at all.
+uvicorn[standard]==0.30.6
+
+# NOT added: `stripe` (backend/CLAUDE.md lists it under future "Stack",
+# but this task's guardrails explicitly forbid calling the Stripe API in
+# Phase 1 — webhooks/checkout are Phase 2 — so no code here imports it;
+# adding an unused pinned dependency now would just be dead weight to
+# revisit later).

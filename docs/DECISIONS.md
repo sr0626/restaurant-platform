@@ -17,6 +17,63 @@ user instruction. Same PR-required-but-skip-Architect-review treatment as
 BRD updates.
 *Rejected: folding status into DECISIONS.md (that's a history log, not a snapshot)*
 
+**Feature-branch `git push` and `gh pr create` no longer need per-action human approval — standing rule**
+2026-09-13 | User decision, given after a session of pushing ~8 PRs one
+approval-prompt at a time. The pre-push approval gate added most of its
+friction without adding much safety: nothing reaches `main` without
+Architect review plus the human's own merge approval anyway, and `main`
+itself is branch-protected against direct pushes regardless of who tries.
+New flow: agents commit, push, and open the PR against `main` as part of
+finishing a task, without asking first; `docs/CMD_LOG.md` still logs every
+push after the fact (unchanged); Architect still reviews every PR before it
+reaches the human; the human's checkpoint moves from "approve the push" to
+"approve the merge." Direct push to `main`, agent-merging a PR, and every
+AWS CLI/SDK command remain hard-gated exactly as before — this decision
+touches feature-branch git push/PR-open only.
+*Rejected: leaving the pre-push gate in place (pure friction once Architect
+review + human merge already gate what lands on `main`), relaxing the AWS
+command gate too (not requested — AWS commands have real-money and
+real-infrastructure consequences a git push doesn't)*
+
+**Architect fixes what it finds (via the responsible dev agent) and verifies the fix before posting its verdict — standing rule, tightened again**
+2026-09-13 | User decision. Extends the 2026-09-12 verdict-comment rule
+(below): finding a problem and leaving a "do not merge until X" comment
+isn't the end state anymore — Architect gets it fixed. Flow: identify the
+problem and which agent owns it → get that agent to make the fix (direct
+dispatch if Architect's own task execution can do that, otherwise a
+precise fix description handed to the orchestrator) → re-check the fix
+actually resolves what was found (re-read the diff, re-run tests if
+relevant) → post one human-readable verdict comment covering what was
+checked, what was found, what got fixed and how it was verified, then the
+go/no-go. Escalates to the human instead of continuing to iterate if a fix
+attempt doesn't resolve the issue after one retry, or if the real fix
+needs a product/design decision not already in this file (a
+Decision-Making-Autonomy DECISIONS.md-gap case, not something to keep
+looping on alone). Codified in root `CLAUDE.md` ("Git Workflow" step 5)
+and `architect/CLAUDE.md` ("Code Review").
+*Rejected: leaving Architect's role as comment-only (pushes the fix-
+dispatch work onto the human every time, when Architect already has the
+context to do it directly), unlimited retry looping (could stall a PR
+indefinitely on something that actually needs a human call)*
+
+**Architect must post an explicit confirmation/approval verdict on every PR before it's surfaced to the human — standing rule, tightened from "adds comments"**
+2026-09-12 | User decision. The prior rule only required Architect to leave
+review comments; this raises the bar to an unambiguous go/no-go verdict
+("Architect approval: ready to merge" / "Architect: do not merge until X"),
+and the PR must not be presented to the human as "ready for your review"
+until that verdict exists. Self-review exception unchanged and explicitly
+reconfirmed by the user: a PR Architect itself opened skips straight to
+human review, no one reviews the reviewer. Same exception extended to
+BRD-only PRs (business document, not code — see "Every BRD update..."
+entry below). Architect posts the verdict as the closing line of a plain
+PR comment, not via `gh pr review --approve` — a native GitHub approval
+would be attributed to the same account as the human's own reviews (no
+separate bot identity exists), blurring who actually decided what.
+*Rejected: using `gh pr review --approve`/`--request-changes` for the verdict
+(identity confusion, same GitHub account as the human), requiring Architect
+confirmation on its own PRs too (no reviewer for the reviewer — user
+explicitly confirmed keeping this exception when asked)*
+
 **Architect and the orchestrator decide judgment calls themselves and report the plan — standing rule**
 2026-09-12 | User decision: don't stop mid-task to ask about ambiguous
 design/schema/process questions with a reasonable answer (field naming, a
@@ -368,6 +425,38 @@ backend and infra CI only.
 
 ## Database & Data Model
 
+**Restaurant lookup by id or slug: `GET /restaurants/{id}` resolves either, not a separate route**
+2026-09-13 | Architect decision, made while reviewing PR #8 (frontend
+scaffold). Frontend Dev's `getRestaurantBySlug` (matching
+`frontend/CLAUDE.md`'s own SSR listing-page example, which calls
+`getRestaurantBySlug(params.slug)` from `/restaurant/[slug]/page.tsx`)
+calls `GET /restaurants/{id}` with the brand's `slug`, but
+`docs/API_CONTRACTS.md` only documented a numeric `id` lookup and
+Backend Dev's PR #7 had already typed the path param as `brand_id: int`
+— a real contract gap, not just an overly-cautious flag in the PR
+description. Resolved by extending the existing route rather than adding
+a new one: the path segment is looked up by `id` when all-digits,
+otherwise by `slug` (`restaurant_brand.slug` is `unique, not null` and
+server-generated from `name`, so it isn't expected to collide with a
+numeric `id` in practice). Keeps the endpoint families list in
+`docs/API_CONTRACTS.md`'s intro unchanged (still just `/restaurants`
+CRUD) instead of adding a `by-slug` sub-route, consistent with how
+`restaurant_photo` and hours were kept as sub-resources rather than new
+top-level families. **Backend Dev: PR #7's `get_restaurant(brand_id:
+int, ...)` in `backend/app/routers/restaurants.py` /
+`restaurant_service.get_restaurant` needs updating to accept a string
+identifier and branch on all-digits vs. not before this can merge as
+documented** — flagged to the orchestrator alongside this decision, not
+fixed here (outside Architect's owned files). No frontend change needed
+— PR #8's `getRestaurantBySlug` already calls the plain `{id}` path with
+the slug, which is exactly this resolution.
+*Rejected: a dedicated `GET /restaurants/by-slug/{slug}` route (works,
+but adds route-ordering complexity in FastAPI — a literal path segment
+must be registered before the parameterized one to avoid ambiguity —
+for no real benefit over a single overloaded lookup), requiring the
+frontend to pre-resolve slug->id via `/search` first (extra round trip
+on every listing-page load, defeats the point of SSR-by-slug)*
+
 **Tier stored as boolean (is_paid + paid_until) on restaurant_location**
 May 2026 | No stored tier enum. is_paid is set directly by Stripe webhooks and admin
 free offer grants. Single indexed boolean read per request — fast, simple, no cache needed.
@@ -406,6 +495,33 @@ actor_id, actor_role, before/after values.
 ---
 
 ## Authentication & Permissions
+
+**Location manager removal is owner/admin-only, no self-removal by the manager**
+2026-09-13 | Architect decision (root CLAUDE.md "Decision-Making
+Autonomy") — not previously settled. Root CLAUDE.md and this log fix that
+only owners *assign* managers ("a manager can manage multiple locations,
+assigned by owner"), but say nothing about who can *remove* one, and this
+had to be decided while writing the missing `/locations/{id}/managers`
+contract (see `docs/API_CONTRACTS.md` "Location Managers"). Landed on
+owner (or admin, matching the same owner-or-admin fallback already used
+for `DELETE /locations/{id}`) only — a manager cannot deactivate their own
+`location_manager` row. Reasoning: mirrors the existing "Managers can
+initiate upgrades but only owners can downgrade" asymmetric-permission
+pattern below — a manager can be granted access and act within it, but
+changing *who has access* (granting or revoking it) stays exclusively an
+owner/admin action, same as downgrading a subscription. Self-removal is
+also low-value here: a manager who no longer wants access can simply stop
+using it or ask the owner, and every write is already re-validated
+server-side against `location_manager.is_active` on each request (see
+"Manager permissions validated server-side on every write" below), so
+there's no urgency argument (e.g. "revoke a stolen session immediately")
+that only self-service revocation would satisfy.
+*Rejected: allowing self-removal (a manager could unilaterally drop
+themselves from a location with no owner visibility into why, and it adds
+a permission branch nothing in the BRD or root CLAUDE.md asked for),
+admin-only with no owner path (owners must be able to manage their own
+location_manager assignments day-to-day without waiting on admin, same as
+they can assign)*
 
 **AWS Cognito for auth (4 groups: owner, manager, admin, registered_user)**
 May 2026 | Managed auth within AWS. No separate auth vendor. Cognito handles

@@ -31,6 +31,34 @@ git push -u origin docs/cmd-log-updates   # claude
 gh pr create --base main --head docs/cmd-log-updates   # claude
 git merge origin/main   # claude  (resolved devops/CLAUDE.md add/add conflict on docs/environment-promotion-strategy)
 git push origin docs/environment-promotion-strategy   # claude
+git merge main   # claude  (resolved architect/CLAUDE.md add/add conflict on docs/architect-approval-gate)
+git push -u origin docs/architect-approval-gate   # claude
+gh pr create --base main --head docs/architect-approval-gate   # claude
+```
+
+## 2026-09-13
+```bash
+git push -u origin integration/phase1-backend-full   # claude
+git push -u origin feature/phase1-frontend-scaffold   # claude
+git push -u origin infra/service-name-and-state-key   # claude
+git push -u origin infra/lambda-cognito-listusers   # claude
+gh pr create --base main --head integration/phase1-backend-full   # claude
+gh pr create --base main --head feature/phase1-frontend-scaffold   # claude
+gh pr create --base main --head infra/service-name-and-state-key   # claude
+gh pr create --base main --head infra/lambda-cognito-listusers   # claude
+```
+
+## 2026-09-13
+```bash
+git push -u origin docs/project-status   # claude
+gh pr create --base main --head docs/project-status   # claude
+git push origin integration/phase1-backend-full   # claude  (id/slug fix, commit 1af489d, onto PR #7)
+git push origin docs/project-status   # claude  (STATUS.md refresh + .gitignore fix, onto PR #13)
+git push origin pr7-slug-test-fix:integration/phase1-backend-full   # claude  (Architect's slug-lookup test coverage, onto PR #7)
+git push origin docs/project-status   # claude  (PR #7 approved status update, onto PR #13)
+git push origin docs/project-status   # claude  (log entry only, onto PR #13)
+git push -u origin docs/relax-feature-branch-push-gate   # claude  (no pre-approval needed, per new rule)
+gh pr create --base main --head docs/relax-feature-branch-push-gate   # claude  (no pre-approval needed, per new rule)
 ```
 
 ## 2026-09-13
