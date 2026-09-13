@@ -73,4 +73,6 @@ git push -u origin docs/homepage-direction-spice-market   # claude  (no pre-appr
 gh pr create --base main --head docs/homepage-direction-spice-market   # claude  (no pre-approval needed, per relaxed push rule)
 git push -u origin docs/merge-hygiene-rule   # claude
 gh pr create --base main --head docs/merge-hygiene-rule   # claude
+git push -u origin feature/homepage-spice-market-theme   # claude  (Spice Market homepage implementation, no pre-approval needed, per relaxed push rule)
+gh pr create --base main --head feature/homepage-spice-market-theme   # claude  (no pre-approval needed, per relaxed push rule)
 ```

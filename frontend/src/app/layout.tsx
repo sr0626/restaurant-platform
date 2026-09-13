@@ -1,16 +1,27 @@
-// Root layout — HTML shell, font loading, and metadata boilerplate only.
-// No visual/theme design here (homepage color/style direction is still
-// under review on a separate design canvas — see the Frontend Dev task
-// notes). Inter is a neutral placeholder font wired through next/font so
-// the loading mechanism exists; swap the family once a design direction
-// is picked, this file's job is just the plumbing.
+// Root layout — HTML shell, font loading, and metadata boilerplate.
+//
+// Visual direction "Spice Market" is picked (see tailwind.config.ts header
+// comment) — the two Google Fonts it specifies are loaded here via
+// `next/font/google` (the idiomatic Next.js way: self-hosted at build time,
+// no layout-shifting <link> tag) and exposed as CSS custom properties that
+// `tailwind.config.ts`'s `fontFamily.display` / `fontFamily.body` tokens
+// point at. Components never reference "Space Grotesk" / "Manrope" by
+// literal name — only the `font-display` / `font-body` utility classes.
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Manrope, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-inter",
+  weight: ["500", "700"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-body",
   display: "swap",
 });
 
@@ -29,8 +40,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className={inter.className}>{children}</body>
+    <html lang="en" className={`${spaceGrotesk.variable} ${manrope.variable}`}>
+      <body className="font-body bg-brand-bg text-brand-ink antialiased">
+        {children}
+      </body>
     </html>
   );
 }
