@@ -15,6 +15,23 @@ from app.models.cuisine_tag import CuisineTag
 from app.models.restaurant_cuisine import RestaurantCuisine
 
 
+async def list_active_cuisine_tags(
+    db: AsyncSession, category: str | None = None
+) -> list[CuisineTag]:
+    """`GET /cuisine-tags` (docs/API_CONTRACTS.md) — public read list.
+    `is_active=true` rows only; an optional `category` filter narrows to
+    one of `cuisine_tag.category`'s valid values. No pagination — see
+    `CuisineTagListResponse`.
+    """
+    filters = [CuisineTag.is_active == True]  # noqa: E712
+    if category is not None:
+        filters.append(CuisineTag.category == category)
+    result = await db.execute(
+        select(CuisineTag).where(*filters).order_by(CuisineTag.category, CuisineTag.display_name)
+    )
+    return list(result.scalars().all())
+
+
 async def get_brand_cuisine_tags(db: AsyncSession, brand_id: int) -> list[CuisineTag]:
     result = await db.execute(
         select(CuisineTag)

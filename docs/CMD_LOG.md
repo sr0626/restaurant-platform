@@ -87,4 +87,6 @@ git merge origin/main   # claude  (resolved next.config.ts/.mjs + CMD_LOG.md con
 git push origin feature/search-and-restaurant-detail-pages   # claude  (Architect fix-loop: merge main to un-revert the next.config.mjs fix, onto PR #21)
 git merge origin/main   # claude  (resolved second CMD_LOG.md conflict — PR #20 merged to main mid-review)
 git push origin feature/search-and-restaurant-detail-pages   # claude  (onto PR #21)
+git push -u origin feature/restaurants-list-and-cuisine-tags   # claude  (Gap A/B endpoint implementation, no pre-approval needed, per relaxed push rule)
+gh pr create --base main --head feature/restaurants-list-and-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
 ```

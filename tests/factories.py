@@ -27,6 +27,7 @@ from factory.faker import Faker as FactoryFaker
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.claim_request import ClaimRequest
+from app.models.cuisine_tag import CuisineTag
 from app.models.location_manager import LocationManager
 from app.models.owner_account import OwnerAccount
 from app.models.restaurant_brand import RestaurantBrand
@@ -128,6 +129,21 @@ class ClaimRequestFactory(factory.Factory):
     reviewer_notes = None
 
 
+class CuisineTagFactory(factory.Factory):
+    """Admin-seeded taxonomy row (app/models/cuisine_tag.py) — `name` is
+    unique, so always sequence/uuid-suffixed, never hardcoded (tests/CLAUDE.md
+    "NEVER hardcode IDs").
+    """
+
+    class Meta:
+        model = CuisineTag
+
+    name = factory.LazyFunction(lambda: f"tag-{uuid.uuid4().hex[:10]}")
+    display_name = FactoryFaker("word")
+    category = "regional"
+    is_active = True
+
+
 class RestaurantPhotoFactory(factory.Factory):
     class Meta:
         model = RestaurantPhoto
@@ -187,6 +203,13 @@ async def create_photo(db: AsyncSession, **overrides) -> RestaurantPhoto:
     db.add(photo)
     await db.flush()
     return photo
+
+
+async def create_cuisine_tag(db: AsyncSession, **overrides) -> CuisineTag:
+    tag = CuisineTagFactory(**overrides)
+    db.add(tag)
+    await db.flush()
+    return tag
 
 
 def submitted_recently() -> datetime:
