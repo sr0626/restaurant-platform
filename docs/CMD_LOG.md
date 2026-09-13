@@ -79,4 +79,6 @@ git push -u origin docs/status-homepage-merged   # claude
 gh pr create --base main --head docs/status-homepage-merged   # claude
 git push -u origin fix/next-config-js   # claude  (next.config.ts -> .mjs fix, no pre-approval needed, per relaxed push rule)
 gh pr create --base main --head fix/next-config-js   # claude  (no pre-approval needed, per relaxed push rule)
+git push -u origin docs/api-contracts-restaurants-list-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
+gh pr create --base main --head docs/api-contracts-restaurants-list-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
 ```
