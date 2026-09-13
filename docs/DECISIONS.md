@@ -400,6 +400,33 @@ actor_id, actor_role, before/after values.
 
 ## Authentication & Permissions
 
+**Location manager removal is owner/admin-only, no self-removal by the manager**
+2026-09-13 | Architect decision (root CLAUDE.md "Decision-Making
+Autonomy") — not previously settled. Root CLAUDE.md and this log fix that
+only owners *assign* managers ("a manager can manage multiple locations,
+assigned by owner"), but say nothing about who can *remove* one, and this
+had to be decided while writing the missing `/locations/{id}/managers`
+contract (see `docs/API_CONTRACTS.md` "Location Managers"). Landed on
+owner (or admin, matching the same owner-or-admin fallback already used
+for `DELETE /locations/{id}`) only — a manager cannot deactivate their own
+`location_manager` row. Reasoning: mirrors the existing "Managers can
+initiate upgrades but only owners can downgrade" asymmetric-permission
+pattern below — a manager can be granted access and act within it, but
+changing *who has access* (granting or revoking it) stays exclusively an
+owner/admin action, same as downgrading a subscription. Self-removal is
+also low-value here: a manager who no longer wants access can simply stop
+using it or ask the owner, and every write is already re-validated
+server-side against `location_manager.is_active` on each request (see
+"Manager permissions validated server-side on every write" below), so
+there's no urgency argument (e.g. "revoke a stolen session immediately")
+that only self-service revocation would satisfy.
+*Rejected: allowing self-removal (a manager could unilaterally drop
+themselves from a location with no owner visibility into why, and it adds
+a permission branch nothing in the BRD or root CLAUDE.md asked for),
+admin-only with no owner path (owners must be able to manage their own
+location_manager assignments day-to-day without waiting on admin, same as
+they can assign)*
+
 **AWS Cognito for auth (4 groups: owner, manager, admin, registered_user)**
 May 2026 | Managed auth within AWS. No separate auth vendor. Cognito handles
 JWT issuance, refresh, MFA, social login.
