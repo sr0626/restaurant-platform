@@ -36,6 +36,32 @@ async def test_unauthed_user_can_view_a_restaurant(client, db_session, as_anonym
     assert body["name"] == "Public Spice House"
 
 
+async def test_unauthed_user_can_view_a_restaurant_by_slug(client, db_session, as_anonymous):
+    """docs/API_CONTRACTS.md "GET /restaurants/{id}" (updated in PR #12,
+    docs/restaurants-id-slug-contract): the path segment resolves either the
+    numeric `restaurant_brand.id` (covered by
+    test_unauthed_user_can_view_a_restaurant above) or the brand's `slug`.
+    Factory-generated slugs are never all-digits (see factories.py
+    RestaurantBrandFactory), so this exercises the slug branch of
+    restaurant_service.get_restaurant.
+    """
+    brand = await create_brand(db_session, is_claimed=True, name="Slug Lookup House")
+    await db_session.commit()
+
+    response = await client.get(f"/restaurants/{brand.slug}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == brand.id
+    assert body["slug"] == brand.slug
+    assert body["name"] == "Slug Lookup House"
+
+
+async def test_restaurant_lookup_404s_for_unknown_slug(client, as_anonymous):
+    """Neither an id nor a slug match -> 404, not a 500/other error."""
+    response = await client.get("/restaurants/no-such-restaurant-slug")
+    assert response.status_code == 404
+
+
 async def test_unauthed_user_can_view_unclaimed_listing_with_claim_cta_data(client, db_session, as_anonymous):
     """DECISIONS.md "Claim flow": unclaimed listings (owner_id NULL,
     is_claimed=false) "stay visible and searchable ... nothing is hidden
