@@ -259,7 +259,9 @@ async def require_location_owner_or_admin(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
     """Auth: owner (owns parent brand) or admin — DELETE /locations/{id}
-    (no manager path; only owner/admin per `docs/API_CONTRACTS.md`).
+    (no manager path; only owner/admin per `docs/API_CONTRACTS.md`). Also
+    reused, unchanged, for `DELETE /locations/{id}/managers/{manager_id}`
+    (same auth shape per `docs/API_CONTRACTS.md` "Location Managers").
     """
     if current_user.role == "admin":
         return current_user
@@ -278,3 +280,67 @@ async def require_location_owner_or_admin(
 
     current_user.owner_account_id = owner.id
     return current_user
+
+
+async def require_location_owner_only(
+    location_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """Auth: owner only (must own the parent brand) — no admin, no manager
+    path. `POST /locations/{id}/managers` (`docs/API_CONTRACTS.md`
+    "Location Managers"): assigning a manager is exclusively an owner
+    action (root CLAUDE.md Key Domain Concepts, "a manager can manage
+    multiple locations, assigned by owner").
+
+    New dependency, per the contract's own implementation note: neither
+    existing dependency matches this shape —
+    `require_location_write_access` also admits an already-assigned
+    manager (wrong here), and `require_location_owner_or_admin` also
+    admits admin (also wrong here; this route has no admin path).
+    """
+    location = await db.get(RestaurantLocation, location_id)
+    if location is None:
+        raise AppError(404, "Location not found", "not_found")
+
+    if current_user.role != "owner":
+        raise AppError(403, "Not authorized for this location", "forbidden")
+
+    owner = await auth_service.get_owner_account_by_sub(db, current_user.cognito_sub)
+    brand = await db.get(RestaurantBrand, location.brand_id)
+    if owner is None or brand is None or brand.owner_id != owner.id:
+        raise AppError(403, "Not authorized for this location", "forbidden")
+
+    current_user.owner_account_id = owner.id
+    return current_user
+
+
+async def require_location_read_access(
+    location_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """Auth: owner (owns parent brand), admin, or manager with an active
+    `location_manager` row — `GET /locations/{id}/managers`
+    (`docs/API_CONTRACTS.md` "Location Managers").
+
+    JUDGMENT CALL (flagged for review): the contract describes this as
+    "the general read-permission pattern already used for owner/manager-
+    shared access (`require_location_write_access`'s check, applied here
+    for a read instead of a write)" — but `require_location_write_access`
+    has no admin branch (correctly: `PATCH /locations/{id}` and
+    `PUT /locations/{id}/hours` explicitly exclude admin per
+    `docs/API_CONTRACTS.md`), while this route's own auth line explicitly
+    includes admin. Reusing `require_location_write_access` unmodified
+    would 403 an admin caller; widening it in place would incorrectly
+    also open those other two write routes to admin. Splitting out a
+    dedicated admin short-circuit here — delegating everything else to
+    `require_location_write_access` — satisfies this route's actual auth
+    list without touching the other two.
+    """
+    if current_user.role == "admin":
+        location = await db.get(RestaurantLocation, location_id)
+        if location is None:
+            raise AppError(404, "Location not found", "not_found")
+        return current_user
+    return await require_location_write_access(location_id, db, current_user)
