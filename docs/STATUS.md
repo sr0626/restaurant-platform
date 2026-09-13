@@ -31,12 +31,18 @@ DynamoDB lock table. `terraform apply` has never been run.
 - [x] Homepage wired to the real `/search` API client with graceful
       empty/error states — no fabricated restaurant data
 - [ ] Search page and login page still unstyled placeholders
-- [ ] **Known bug (repo-wide, pre-existing): `next build`/`next lint` don't
-      run at all** — `next.config.ts` needs Next 15, pinned version is
-      14.2.18. Fix suggested as a follow-up task, not yet started.
+- [x] **`next build`/`next lint` fixed** — `next.config.ts` needed Next 15;
+      converted to `next.config.mjs` (plain JS, works on the pinned Next
+      14.2.18 — no version bump, per root `CLAUDE.md`'s settled Next 14
+      stack decision). Verified with a real `next build` (success) and
+      `next lint` (starts normally, no config-load error).
 - `npm install` still unverified against the project's own npm registry
-  (sandbox network issue) — verified once against the public registry as a
-  one-off; `@aws-amplify/auth@6.6.5` pin doesn't exist there (needs a look)
+  (sandbox network issue) — verified once again against the public
+  registry as a one-off; confirmed `@aws-amplify/auth@6.6.5` doesn't exist
+  there (public jumps 6.5.2 → later 6.x series) — pin unchanged, needs a
+  look separately. Also noted in passing: npm flags `next@14.2.18` itself
+  for a known security advisory (nextjs.org/blog/security-update-2025-12-11)
+  — separate from this fix, flagged for awareness.
 
 ## Infra (Terraform)
 - [x] Modules written: aurora, ecr, lambda, cognito, s3, amplify, ses (deferred), eventbridge, iam, networking
@@ -51,7 +57,5 @@ DynamoDB lock table. `terraform apply` has never been run.
 - [x] 94 passing, 3 skipped (need real Postgres), 0 failing — verified independently three times, incl. new slug-lookup coverage
 
 ## Blocking next steps
-1. Fix the `next.config.ts`/Next 14 incompatibility so the frontend can
-   actually build (queued as a follow-up task)
-2. Style the remaining pages (search, login)
-3. `terraform apply` (human-run) — nothing goes live until this happens
+1. Style the remaining pages (search, login)
+2. `terraform apply` (human-run) — nothing goes live until this happens
