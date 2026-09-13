@@ -1,5 +1,3 @@
-import type { NextConfig } from "next";
-
 /**
  * Base Next.js config — plumbing only, no visual/theme decisions here.
  *
@@ -10,8 +8,13 @@ import type { NextConfig } from "next";
  * the matching remotePattern together once Infra provisions the
  * distribution — hardcoding a guessed domain now would violate root
  * CLAUDE.md's "AWS Best Practices" (never hardcode infra endpoints).
+ *
+ * Plain JS (not next.config.ts): TS-format config needs Next 15+; this
+ * project is pinned to Next 14.2.18 (root CLAUDE.md stack decision).
+ *
+ * @type {import('next').NextConfig}
  */
-const nextConfig: NextConfig = {
+const nextConfig = {
   reactStrictMode: true,
 };
 
