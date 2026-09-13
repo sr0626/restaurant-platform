@@ -30,7 +30,9 @@ DynamoDB lock table. `terraform apply` has never been run.
       hex/fonts in components, so a future L&F change is a values-only edit)
 - [x] Homepage wired to the real `/search` API client with graceful
       empty/error states — no fabricated restaurant data
-- [ ] Search page and login page still unstyled placeholders
+- [x] Search results page and public restaurant detail page built (real
+      results/pagination, hours, gallery, unclaimed-listing CTA) —
+      login page still an unstyled placeholder
 - [x] **`next build`/`next lint` fixed** — `next.config.ts` needed Next 15;
       converted to `next.config.mjs` (plain JS, works on the pinned Next
       14.2.18 — no version bump, per root `CLAUDE.md`'s settled Next 14
@@ -57,5 +59,5 @@ DynamoDB lock table. `terraform apply` has never been run.
 - [x] 94 passing, 3 skipped (need real Postgres), 0 failing — verified independently three times, incl. new slug-lookup coverage
 
 ## Blocking next steps
-1. Style the remaining pages (search, login)
+1. Style the remaining page (login)
 2. `terraform apply` (human-run) — nothing goes live until this happens
