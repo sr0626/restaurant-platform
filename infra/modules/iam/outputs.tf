@@ -17,3 +17,8 @@ output "deal_expiry_lambda_role_name" {
   description = "IAM execution role name for the deal-expiry Lambda"
   value       = aws_iam_role.deal_expiry_lambda.name
 }
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN DevOps's GitHub Actions pipeline assumes via OIDC (GitHub secret DEV_DEPLOY_ROLE_ARN — see devops/CLAUDE.md)"
+  value       = aws_iam_role.github_actions_deploy.arn
+}

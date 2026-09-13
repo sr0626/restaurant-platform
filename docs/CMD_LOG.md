@@ -26,5 +26,9 @@ gh api --method PUT repos/sr0626/restaurant-platform/branches/main/protection --
 git push origin infra/ecr-container-lambda-image   # claude
 git push -u origin docs/environment-promotion-strategy   # claude
 gh pr create --base main --head docs/environment-promotion-strategy   # claude
-git push origin main   # claude
+git push origin main   # claude  (rejected — main is now protected, no direct pushes)
+git push -u origin docs/cmd-log-updates   # claude
+gh pr create --base main --head docs/cmd-log-updates   # claude
+git merge origin/main   # claude  (resolved devops/CLAUDE.md add/add conflict on docs/environment-promotion-strategy)
+git push origin docs/environment-promotion-strategy   # claude
 ```

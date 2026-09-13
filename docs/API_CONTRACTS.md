@@ -1,0 +1,588 @@
+# API Contracts — Phase 1
+
+Owned by the Architect agent (see `architect/CLAUDE.md`). Backend Dev
+implements exactly these shapes; Frontend Dev's typed API client
+(`frontend/src/lib/api/`) is generated against them. Covers exactly the
+Phase 1 endpoint families listed in `backend/CLAUDE.md`'s Phase 1
+Scope: `/search`, `/restaurants` (CRUD), `/locations` (CRUD), `/claim`,
+`/auth`.
+
+**Auth model reference** (backend/CLAUDE.md "Public Routes"): only
+`GET /health`, `GET /search`, `GET /restaurants/{id}`,
+`GET /restaurants/{id}/locations`, and `GET /locations/{id}` are
+public. Every other route below requires a valid Cognito JWT
+(`owner` / `manager` / `admin` / `registered_user` pool group), and
+every write additionally re-validates ownership/assignment server-side
+per root CLAUDE.md "Permission model" — never trust the JWT claims
+alone for manager access (`location_manager` table check).
+
+**Full menu vs. photos (DECISIONS.md "Full menu with prices moved to
+free tier", "Photo gallery: 2 photos free, 10 photos paid"):** no menu
+endpoint exists in Phase 1 — menu CRUD is Phase 2 (`backend/CLAUDE.md`
+"Do NOT Build Yet"), so no response below returns menu/price data.
+Photo *response fields* are modeled below (`cover_photo_url`,
+`gallery_photos`) because the gating behavior is a Phase 1 concern for
+the owner portal (`backend/CLAUDE.md` "up to 2 gallery photos").
+
+**Backing table CLOSED** in a follow-up migration
+(`20260912_0002_photo_gallery_and_claim_schema.py`, see
+`docs/DATA_MODEL.md` "restaurant_photo"): both fields are now sourced
+from the `restaurant_photo` table, keyed by `location_id`. `s3_key` is
+stored; every URL below is the service layer's CloudFront resolution
+of that key, never a stored full URL. `cover_photo_url` is the row
+with `is_cover=true` (at most one per location, allowed regardless of
+tier — it does not count toward the gallery cap); `gallery_photos` is
+the `is_cover=false` rows ordered by `display_order`. Gating is by
+omission, not a boolean flag: a free-tier location's `gallery_photos`
+simply contains at most 2 entries; a paid location's contains up to
+10 — enforced by Backend Dev's service layer on write (see the new
+`Photos` endpoints under `Locations` below), consistent with root
+CLAUDE.md "is_paid=false locations: ... are NOT returned by API." Still
+open per `docs/BRD_OPEN_ITEMS.md` #4: upload size limits and the
+CDN/CloudFront configuration itself (Infra's, not a schema concern).
+
+---
+
+## GET /search
+
+Auth: none (public)
+
+Query params:
+| Param | Type | Notes |
+|---|---|---|
+| lat | float, optional | Omit + `lng` omit -> falls back to the admin-configured DFW city bounding box (DECISIONS.md "Default search radius") |
+| lng | float, optional | |
+| radius | float, optional, default 15 | Miles |
+| cuisine[] | string[], optional | `cuisine_tag.name` values, category=`regional` (also usable for `signature`/`dining_time` slugs) |
+| dietary[] | string[], optional | `cuisine_tag.name` values, category=`dietary` |
+| type[] | string[], optional | `cuisine_tag.name` values, category=`type` |
+| page | int, optional, default 1 | |
+| page_size | int, optional, default 20, max 100 | |
+
+Note: `open_now` is deliberately **not** a query param here — deferred
+to Phase 3 (DECISIONS.md "Restaurant hours").
+
+Response:
+```json
+{
+  "results": [
+    {
+      "brand_id": 123,
+      "name": "Spice Route",
+      "slug": "spice-route",
+      "is_claimed": true,
+      "cuisine_tags": [
+        { "name": "hyderabadi", "display_name": "Hyderabadi", "category": "regional" }
+      ],
+      "nearest_location": {
+        "location_id": 456,
+        "distance_mi": 3.2,
+        "city": "Plano",
+        "state": "TX",
+        "is_verified": true,
+        "is_paid": true,
+        "is_open_now": true
+      },
+      "location_count_nearby": 3,
+      "cover_photo_url": null
+    }
+  ],
+  "page": 1,
+  "page_size": 20,
+  "total": 47
+}
+```
+Notes:
+- Results are brand-level cards, not flat locations (DECISIONS.md
+  "Brand-level search results") — `location_count_nearby` is how many
+  of the brand's locations fall within the search radius; the frontend
+  expands this into "3 locations near you."
+- `nearest_location.is_open_now` is `true` / `false` / `null` (hours
+  unknown) — a per-row display lookup against `restaurant_hours` +
+  `restaurant_location.timezone`, not a filter (root/DECISIONS.md
+  "Restaurant hours").
+- Default sort: `is_verified` desc, then `distance_mi` asc, then `name`
+  asc (DECISIONS.md "Search default sort").
+- `cover_photo_url` — see the photo note at the top of this doc.
+  **Cross-reference note (flagged for review):** `restaurant_photo` is
+  keyed by `location_id`, not `brand_id` (a brand card here is really
+  a rollup of its locations — DECISIONS.md "Brand-level search
+  results"). This field resolves to the **`nearest_location`'s** cover
+  photo, not some brand-wide concept — there isn't one. A brand with
+  multiple locations and no cover photo on the nearest one shows
+  `null` even if a farther location of the same brand has one.
+
+---
+
+## Restaurants (`restaurant_brand`)
+
+### GET /restaurants/{id}
+
+Auth: none (public)
+
+Response:
+```json
+{
+  "id": 123,
+  "name": "Spice Route",
+  "slug": "spice-route",
+  "description": "Hyderabadi biryani specialists since 2010.",
+  "is_claimed": true,
+  "owner_id": 55,
+  "cuisine_tags": [
+    { "name": "hyderabadi", "display_name": "Hyderabadi", "category": "regional" }
+  ],
+  "location_count": 3
+}
+```
+`owner_id` is `null` for unclaimed listings (still visible, per
+DECISIONS.md "Claim flow" — the frontend renders a "Claim this
+listing" CTA when `is_claimed` is `false`).
+
+### GET /restaurants/{id}/locations
+
+Auth: none (public)
+
+Query params: `page` (default 1), `page_size` (default 20, max 100).
+
+Response:
+```json
+{
+  "results": [
+    {
+      "id": 456,
+      "location_name": null,
+      "address_line1": "123 Main St",
+      "city": "Plano",
+      "state": "TX",
+      "postal_code": "75024",
+      "phone": "+14695551234",
+      "is_verified": true,
+      "is_paid": true,
+      "is_open_now": true
+    }
+  ],
+  "page": 1,
+  "page_size": 20,
+  "total": 3
+}
+```
+Summary shape only (no hours breakdown, no photos) — see
+`GET /locations/{id}` for the full location detail.
+
+### POST /restaurants
+
+Auth: owner
+
+Body:
+```json
+{
+  "name": "Spice Route",
+  "description": "Hyderabadi biryani specialists since 2010.",
+  "cuisine_tag_ids": [7, 12]
+}
+```
+Creates a brand owned by the authenticated owner (`is_claimed=true`,
+`owner_id=<self>`, `slug` server-generated from `name`). This is
+distinct from the claim flow, which attaches an *existing*,
+admin-seeded, unclaimed brand to an owner instead of creating a new
+row — see `POST /claim`.
+
+Response: `201`, same shape as `GET /restaurants/{id}`.
+
+Audit: writes an `audit_log` row (`table_name="restaurant_brand"`,
+`action="create"`) per root CLAUDE.md "ALWAYS — Quality".
+
+### PATCH /restaurants/{id}
+
+Auth: owner (must own the brand) or admin
+
+Body: any subset of `{ name, description, cuisine_tag_ids }`.
+
+Response: `200`, same shape as `GET /restaurants/{id}`.
+
+Audit: `audit_log` row (`action="update"`, `old_val`/`new_val`
+populated).
+
+### DELETE /restaurants/{id}
+
+Auth: admin only
+
+`restaurant_location.brand_id` has `ON DELETE RESTRICT` — the database
+itself refuses this delete while any location rows still reference the
+brand. Backend Dev's service layer should catch that and return `409
+Conflict` with a clear message rather than letting a DB integrity
+error surface (root CLAUDE.md "NEVER expose internal stack details in
+API error responses"). Callers must remove/reassign all of the brand's
+locations first.
+
+**Flagged gap:** `restaurant_brand` has no `is_active`/soft-delete
+column in this schema (unlike `restaurant_location`), so there is no
+"unlist without deleting" option for a whole brand today — only a hard
+delete gated by the FK. Worth a product decision if "temporarily hide
+a brand" turns out to be a real need.
+
+Response: `204 No Content`. Audit: `audit_log` row (`action="delete"`).
+
+---
+
+## Locations (`restaurant_location`)
+
+### GET /locations/{id}
+
+Auth: none (public)
+
+Response:
+```json
+{
+  "id": 456,
+  "brand_id": 123,
+  "location_name": null,
+  "address_line1": "123 Main St",
+  "address_line2": null,
+  "city": "Plano",
+  "state": "TX",
+  "postal_code": "75024",
+  "country": "US",
+  "phone": "+14695551234",
+  "timezone": "America/Chicago",
+  "latitude": 33.0198,
+  "longitude": -96.6989,
+  "is_verified": true,
+  "is_paid": true,
+  "is_open_now": true,
+  "hours": [
+    { "day_of_week": 0, "open_time": "11:00:00", "close_time": "22:00:00", "is_closed": false },
+    { "day_of_week": 1, "open_time": "11:00:00", "close_time": "22:00:00", "is_closed": false }
+  ],
+  "cover_photo_url": null,
+  "gallery_photos": []
+}
+```
+Notes:
+- `hours` is all 7 `restaurant_hours` rows for this location, `day_of_week`
+  0=Monday..6=Sunday (see `docs/DATA_MODEL.md` judgment-call note — a
+  day with no seeded row yet is simply absent from the array, which the
+  frontend should treat the same as `is_closed: null`).
+- `is_open_now` is the computed display status (see `/search` notes) —
+  `null` when the current day's `is_closed` is `null` (hours unknown).
+- Full menu with prices is **not** in this response — no menu endpoint
+  exists in Phase 1 (see the note at the top of this doc).
+- `cover_photo_url` — the `restaurant_photo` row for this location with
+  `is_cover=true` (at most one), resolved to a CloudFront URL from its
+  `s3_key`. `null` if no cover photo has been uploaded yet. See
+  `docs/DATA_MODEL.md` "restaurant_photo".
+- `gallery_photos` — up to 2 entries if `is_paid=false`, up to 10 if
+  `is_paid=true`, each `{ id, url, display_order }` (an array of
+  objects, not bare URL strings — the `id` is needed for the `PATCH`/
+  `DELETE` photo endpoints below), ordered by `display_order`, sourced
+  from `restaurant_photo` rows with `is_cover=false`.
+
+### POST /locations
+
+Auth: owner (must own the parent brand — `restaurant_brand.owner_id == current_user.id`)
+
+Body:
+```json
+{
+  "brand_id": 123,
+  "address_line1": "123 Main St",
+  "address_line2": null,
+  "city": "Plano",
+  "state": "TX",
+  "postal_code": "75024",
+  "country": "US",
+  "phone": "+14695551234",
+  "timezone": "America/Chicago",
+  "latitude": 33.0198,
+  "longitude": -96.6989
+}
+```
+New locations start `is_paid=false`, `is_verified=false`, `is_active=true`.
+`latitude`/`longitude` are geocoded client- or service-side before this
+call; the service layer derives `geom` from them on write (see
+`docs/DATA_MODEL.md` judgment-call note on `restaurant_location.geom`).
+
+Response: `201`, same shape as `GET /locations/{id}` (with an empty `hours` array).
+
+Audit: `audit_log` row (`table_name="restaurant_location"`, `action="create"`).
+
+### PATCH /locations/{id}
+
+Auth: owner (owns parent brand) or manager with an active `location_manager` row for this location (root CLAUDE.md "Permission model" — checked server-side on every write, never from the JWT alone)
+
+Body: any subset of the address/contact/timezone fields from `POST
+/locations`. Does **not** accept `is_paid`, `paid_until`, or
+`stripe_sub_item_id` — those are Stripe-webhook/admin-only writes
+(root CLAUDE.md "Stripe webhook sets is_paid... on payment
+success/failure"; not a field an owner or manager can set directly).
+
+Response: `200`, same shape as `GET /locations/{id}`.
+
+Audit: `audit_log` row (`action="update"`).
+
+### PUT /locations/{id}/hours
+
+Auth: owner (owns parent brand) or manager with active assignment for this location
+
+Body: full week replacement (`backend/CLAUDE.md` "Hours captured via
+CRUD" — modeled as a sub-resource of `/locations`, not a separate
+top-level endpoint family, to stay within the Phase 1 endpoint list):
+```json
+{
+  "hours": [
+    { "day_of_week": 0, "open_time": "11:00:00", "close_time": "22:00:00", "is_closed": false },
+    { "day_of_week": 1, "open_time": "11:00:00", "close_time": "22:00:00", "is_closed": false },
+    { "day_of_week": 2, "is_closed": true }
+  ]
+}
+```
+A day omitted from the array is left as `is_closed: null` ("hours
+unknown") rather than being guessed. Upserts by (`location_id`,
+`day_of_week`) — matches the table's unique constraint.
+
+Response: `200`, `{ "hours": [ ...same 7-row shape as GET /locations/{id}.hours... ] }`.
+
+Audit: `audit_log` row (`table_name="restaurant_location"`,
+`record_id=<location_id>`, `action="update"`) — hours changes are
+tracked against the location, not a separate audited table, since
+`restaurant_hours` is not in the root CLAUDE.md audit-required list.
+
+### Photos (`restaurant_photo`, sub-resource of `/locations/{id}`)
+
+**Added alongside `restaurant_photo`'s follow-up migration** — closes
+the gap noted at the top of this doc and in `docs/DATA_MODEL.md` "Open
+items." Modeled as a sub-resource of `/locations`, same reasoning as
+`/locations/{id}/hours`: stays within the Phase 1 endpoint families
+already listed in `backend/CLAUDE.md` (`/locations` CRUD covers this,
+same as it covers hours) rather than introducing a new top-level
+`/photos` family. Uploads follow root CLAUDE.md's S3 presigned-URL
+pattern exactly — never through Lambda.
+
+Auth for all four routes below: owner (owns parent brand) or manager
+with an active `location_manager` row for this location — same as
+`PATCH /locations/{id}` and `PUT /locations/{id}/hours`.
+
+#### POST /locations/{id}/photos/upload-url
+
+Body: `{ "content_type": "image/jpeg" }`
+
+Response: `200`
+```json
+{
+  "upload_url": "https://<bucket>.s3.amazonaws.com/...",
+  "s3_key": "locations/456/photos/8f14e-....jpg",
+  "expires_in": 600
+}
+```
+Presigned S3 `PUT` URL (`backend/CLAUDE.md` "S3 presigned URL
+generation" — `ExpiresIn=600`). The client uploads the file directly to
+`upload_url`, then calls `POST /locations/{id}/photos` below with the
+same `s3_key` to record it.
+
+#### POST /locations/{id}/photos
+
+Body: `{ "s3_key": "locations/456/photos/8f14e-....jpg", "is_cover": false }`
+
+Creates the `restaurant_photo` row once the client confirms the S3
+upload succeeded. Server-assigned `display_order` (appended to the
+end) when `is_cover=false`. Enforcement, all at the service layer (not
+a DB constraint, same pattern as `location_manager`'s manager cap):
+- **Gallery cap:** rejects with `409 Conflict` if the location already
+  has 2 (`is_paid=false`) or 10 (`is_paid=true`) `is_cover=false` rows.
+- **Cover replace, not stack:** if `is_cover=true` and a cover row
+  already exists for this location, the existing one is deleted (or
+  demoted) as part of the same write — there is only ever one.
+
+Response: `201`, `{ "id": 12, "location_id": 456, "url": "https://<cloudfront-domain>/...", "is_cover": false, "display_order": 2 }`.
+
+`restaurant_photo` is not in root CLAUDE.md's audit-required table
+list, so no `audit_log` row is required here (consistent with
+`restaurant_hours` above).
+
+#### PATCH /locations/{id}/photos/{photo_id}
+
+Body: any subset of `{ "display_order": 0, "is_cover": true }`.
+Setting `is_cover=true` demotes/removes whichever row currently holds
+the cover slot for this location, same rule as the `POST` above.
+
+Response: `200`, same shape as the `POST` response.
+
+#### DELETE /locations/{id}/photos/{photo_id}
+
+Row delete (not soft-delete — unlike `restaurant_location` itself,
+there's no "hidden but kept" state that makes sense for an individual
+gallery photo; the S3 object removal, if any, is Backend Dev's
+service-layer concern, not documented here).
+
+Response: `204 No Content`.
+
+### DELETE /locations/{id}
+
+Auth: owner (owns parent brand) or admin
+
+**Soft delete, not a row delete:** sets `is_active=false`. The row,
+its `restaurant_hours`, and its `location_manager` history are kept
+(root CLAUDE.md "NEVER delete or truncate any DB table" — this applies
+to what an agent runs directly, but the same discipline is the right
+default for the product's own delete endpoints too). A relisted
+location is `PATCH`-reactivated by an admin, not recreated.
+
+Response: `204 No Content`. Audit: `audit_log` row (`action="update"`,
+noting the `is_active` transition — not `action="delete"`, since
+nothing is actually deleted).
+
+---
+
+## Claim flow (`/claim`)
+
+Implements DECISIONS.md "Claim flow": Google Business Profile match OR
+phone verification as primary proof, document upload + admin review as
+fallback; single admin queue, 2-business-day SLA. This flow attaches
+an *existing* unclaimed `restaurant_brand` (seeded with `owner_id=NULL`,
+`is_claimed=false`) to the authenticated user — it does not create a
+new brand (see `POST /restaurants` for that).
+
+### POST /claim
+
+Auth: any authenticated Cognito user (the claimant — elevated to the
+`owner` pool group by Backend Dev's approval handling once the claim is
+approved; the request itself does not require the user to already be
+in the `owner` group)
+
+Body:
+```json
+{
+  "brand_id": 123,
+  "location_id": 456,
+  "proof_method": "google_business_profile",
+  "google_business_profile_url": "https://business.google.com/...",
+  "supporting_document_url": null
+}
+```
+`proof_method` is one of `google_business_profile` | `phone_verification`
+| `document_upload`. For `phone_verification`, no body proof field is
+needed — the outbound call target is the phone number already on the
+public listing (`restaurant_location.phone`), never a number the
+claimant supplies (DECISIONS.md: "Rejected: Phone number claimant
+supplies — spoofable"). For `document_upload`, `supporting_document_url`
+is an S3 key from a presigned upload (root CLAUDE.md media pattern),
+required only as the fallback when neither of the other two methods
+passes.
+
+`location_id` **(added alongside the `claim_request` follow-up
+migration — flagged judgment call, see `docs/DATA_MODEL.md`
+"claim_request"):** optional, but required in practice when
+`proof_method = phone_verification` and the brand has more than one
+location — it identifies *which* location's public
+`restaurant_location.phone` is being called, since the claim target
+(`brand_id`) can have several. Omit it for a single-location brand or
+for the other two proof methods.
+
+Response: `201`
+```json
+{
+  "claim_id": 789,
+  "brand_id": 123,
+  "status": "pending_review",
+  "proof_method": "google_business_profile",
+  "submitted_at": "2026-09-12T10:00:00Z",
+  "sla_due_at": "2026-09-16T10:00:00Z"
+}
+```
+All claims land in the single admin review queue regardless of
+`proof_method` — a Google Business Profile match is treated as
+*pre-verified* evidence for the admin reviewing it, not an
+auto-approval path (DECISIONS.md doesn't describe an auto-approve
+branch). `sla_due_at` is computed (`submitted_at` + 2 business days),
+not a stored column — same pattern as `is_open_now` being computed
+rather than stored.
+
+**Backing table CLOSED** in a follow-up migration
+(`20260912_0002_photo_gallery_and_claim_schema.py` — see
+`docs/DATA_MODEL.md` "claim_request"). `claim_id` above is
+`claim_request.id`. At most one `pending_review` claim can exist per
+brand at a time (partial unique index) — a second `POST /claim` for
+the same `brand_id` while one is already pending should return `409
+Conflict`, not create a competing row.
+
+### GET /claim/{id}
+
+Auth: the claimant (own claim only) or admin (any claim)
+
+Response: same shape as the `POST /claim` response, with `status` one
+of `pending_review` | `approved` | `rejected`, plus `reviewed_at` /
+`reviewer_notes` once resolved.
+
+### POST /claim/{id}/approve
+
+Auth: admin
+
+Body: `{}`, or optionally `{ "reviewer_notes": "GBP listing matched exactly." }`
+— no field is required, approval is a state transition, but
+`reviewer_notes` isn't reject-only (see `docs/DATA_MODEL.md`
+"claim_request" field-naming note).
+
+Effect: sets `restaurant_brand.owner_id = <claimant>`,
+`is_claimed = true`, `claimed_at = now()`. Audit: `audit_log` row
+(`table_name="restaurant_brand"`, `action="update"`).
+
+Response: `200`, updated claim shape (`status: "approved"`).
+
+### POST /claim/{id}/reject
+
+Auth: admin
+
+Body: `{ "reviewer_notes": "Document did not match listing address." }`
+
+Response: `200`, updated claim shape (`status: "rejected"`).
+
+---
+
+## Auth (`/auth`)
+
+Cognito itself issues and refreshes JWTs directly to the frontend
+(Hosted UI or SDK) — root CLAUDE.md "Auth: AWS Cognito"; this backend
+never issues, stores, or validates passwords (root CLAUDE.md "NEVER
+store passwords — Cognito handles all auth"). The two routes below
+cover only what the backend itself needs: reading the caller's
+identity off a validated JWT, and lazily provisioning the local
+`owner_account` row the first time a Cognito "owner" group user is
+seen (Cognito has no concept of our `owner_account` table).
+
+### GET /auth/me
+
+Auth: any authenticated user
+
+Response:
+```json
+{
+  "cognito_sub": "us-east-1:abc-123",
+  "role": "owner",
+  "email": "owner@example.com",
+  "owner_account": {
+    "id": 55,
+    "full_name": "Priya Rao",
+    "stripe_customer_id": null
+  }
+}
+```
+`owner_account` is `null` for `manager`/`admin`/`registered_user` roles
+(they have no local business record in this schema — see
+`docs/DATA_MODEL.md`'s identity note). For an `owner`-group user with
+no existing `owner_account` row yet, the service layer creates one on
+first call (`cognito_sub` + `email` from the JWT claims) rather than
+requiring a separate signup-sync step.
+
+### PATCH /auth/me
+
+Auth: owner
+
+Body: `{ "full_name": "Priya Rao", "phone": "+14695559876" }`
+
+Updates the caller's own `owner_account` row only — no `owner_id` in
+the body, it's always the authenticated caller (root CLAUDE.md
+"Permission model" — never trust a client-supplied identity for a
+write that should be self-scoped).
+
+Response: `200`, `owner_account` shape from `GET /auth/me`.

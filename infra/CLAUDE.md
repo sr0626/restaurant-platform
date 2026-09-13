@@ -305,6 +305,50 @@ Every Lambda gets its own IAM role with only the permissions it needs:
   or handle the account's credentials directly — sessions expire and the
   human re-runs `aws sso login --profile restaurant-platform-dev` as needed.
 
+### Environment promotion convention (added 2026-09-12 — see DECISIONS.md
+### "Terraform environment promotion")
+One shared Terraform codebase on `main`, no environment branches. What makes
+an environment distinct is its own state key, its own var-file, and its own
+AWS account/profile — never a forked copy of the code. This is Infra's
+convention to implement as `test`/`prod` get added; only `dev` exists today
+but name things this way from the start so adding the next environment is a
+config change, not a rename/migration.
+
+- **State key:** `envs/<env>/terraform.tfstate` in the shared state bucket
+  (`restaurant-platform-tfstate-sr0626`), e.g. `envs/dev/terraform.tfstate`,
+  `envs/test/terraform.tfstate`, `envs/prod/terraform.tfstate`. (Current
+  `backend.tf` still has the placeholder key `phase1/terraform.tfstate` from
+  before this convention was decided — the next Infra task that touches
+  `backend.tf` should migrate it to `envs/dev/terraform.tfstate` via
+  `terraform state mv`/re-init, human-run, not a silent rename.) Phase is a
+  resource tag (`var.phase`), not a state partition — don't key state by
+  phase, only by environment.
+- **Var-files:** one per environment, `infra/envs/<env>.tfvars` (gitignored,
+  real values), with a committed `infra/envs/<env>.tfvars.example` per
+  environment showing shape only. Select with
+  `terraform plan -var-file=envs/dev.tfvars`. Never rely on a default in
+  `variables.tf` to silently pick an environment.
+- **One state per environment, not one state per module**, even as the
+  module count under `/infra/modules` grows toward 3x. Splitting state by
+  domain (e.g. isolating Aurora into its own state from Lambda/API Gateway)
+  is a real option for limiting blast radius or speeding up plan/apply, but
+  don't do it preemptively — only when apply times actually get painful or a
+  specific domain (most likely Aurora, once `prod` exists) needs isolated
+  blast radius. Adding modules is not by itself a reason to split state.
+- **Terraform workspaces are rejected for this project** — a workspace
+  selection (`terraform workspace select`) is invisible in the command/CI
+  job itself, making "which environment does this plan/apply target" easy to
+  get wrong by omission. Explicit state key + var-file + profile per command
+  keeps that visible. Don't introduce workspaces later as a "simplification"
+  without revisiting this reasoning first.
+- **Promotion = applying the same reviewed commit to each environment's
+  state in sequence (dev → test → prod)**, human-run per the existing "never
+  terraform apply" guardrail — one `terraform plan`/`apply` per environment,
+  each against that environment's own state key, var-file, and account
+  profile. See `devops/CLAUDE.md` for the migration-before-image sequencing
+  within each environment's promotion step, the hotfix exception to strict
+  dev→test→prod ordering, and the rollback playbook for destructive changes.
+
 ## Phase 1 Scope — What to Provision Now
 - Aurora Serverless v2 cluster (PostGIS enabled via migration)
 - ECR repository for the backend API image (see "ECR" pattern below)
