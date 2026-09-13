@@ -71,4 +71,6 @@ git push origin pr7-slug-test-fix:integration/phase1-backend-full   # claude  (A
 git push origin docs/project-status   # claude  (PR #7 approved status update, onto PR #13)
 git push -u origin docs/homepage-direction-spice-market   # claude  (no pre-approval needed, per relaxed push rule)
 gh pr create --base main --head docs/homepage-direction-spice-market   # claude  (no pre-approval needed, per relaxed push rule)
+git push -u origin feature/homepage-spice-market-theme   # claude  (Spice Market homepage implementation, no pre-approval needed, per relaxed push rule)
+gh pr create --base main --head feature/homepage-spice-market-theme   # claude  (no pre-approval needed, per relaxed push rule)
 ```
