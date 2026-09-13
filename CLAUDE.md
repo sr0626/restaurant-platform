@@ -149,7 +149,14 @@ Every agent, every task, follows this flow — codified per-agent in each
    need per-action human approval** (changed 2026-09-13 — see "NEVER —
    Session Control" below). Direct push to `main` remains forbidden
    (and blocked by branch protection regardless).
-4. Open the PR against `main` (`gh pr create`) once pushed.
+4. **Open the PR against `main` as a DRAFT** (`gh pr create --draft`) once
+   pushed — added 2026-09-13, so the human can never accidentally merge
+   while Architect review is still in progress: GitHub disables the merge
+   button entirely on a draft PR. Exception: a PR that skips Architect
+   review entirely (Architect's own PRs, BRD-only PRs, `docs/STATUS.md`-only
+   PRs — see the self-review exception below and "ALWAYS — Documentation")
+   has no review-in-progress window to protect against, so open those
+   directly as ready-for-review, not draft.
 5. **The Architect agent reviews every PR — schema, backend, frontend,
    infra, devops, tests alike — and posts an explicit confirmation/approval
    verdict, not just observations** (added 2026-09-12). Architect doesn't
@@ -158,12 +165,14 @@ Every agent, every task, follows this flow — codified per-agent in each
    consistent review gate. The review comment must end with an unambiguous
    verdict line — e.g. "Architect approval: ready to merge" or "Architect:
    do not merge until X is addressed" — so there's a clear go/no-go, not
-   just notes. **The PR is only surfaced to the human for their own
-   approval after that confirmation is posted** — don't hand a PR to the
-   human as "ready for you" before Architect's verdict exists. Exception:
-   a PR Architect itself opened skips Architect self-review (no one
-   designated to review the reviewer) and goes straight to human review,
-   as before.
+   just notes. **On an approval verdict, Architect (or whoever posts the
+   verdict) marks the PR ready for review** (`gh pr ready <number>`) —
+   that's what actually surfaces it to the human as mergeable; a PR stays
+   in draft, merge button disabled, until this happens. If the verdict is
+   "do not merge until X," leave it in draft. Exception: a PR Architect
+   itself opened skips Architect self-review (no one designated to review
+   the reviewer) and goes straight to human review, as before — it was
+   opened ready-for-review already, per step 4's exception.
    **When Architect finds a real problem, it doesn't just comment and stop
    (added 2026-09-13)** — it gets the responsible dev agent to fix it,
    re-verifies the fix, and only then posts the verdict comment, written

@@ -83,10 +83,15 @@ git push -u origin feature/search-and-restaurant-detail-pages   # claude  (searc
 gh pr create --base main --head feature/search-and-restaurant-detail-pages   # claude  (no pre-approval needed, per relaxed push rule)
 git push -u origin docs/api-contracts-restaurants-list-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
 gh pr create --base main --head docs/api-contracts-restaurants-list-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
+gh pr ready 21 --undo   # claude  (converted PR #21 to draft, per new draft-until-approved rule)
+git push -u origin docs/draft-pr-until-architect-approves   # claude
+gh pr create --base main --head docs/draft-pr-until-architect-approves   # claude
 git merge origin/main   # claude  (resolved next.config.ts/.mjs + CMD_LOG.md conflicts from PR #19 landing after this branch was cut)
 git push origin feature/search-and-restaurant-detail-pages   # claude  (Architect fix-loop: merge main to un-revert the next.config.mjs fix, onto PR #21)
 git merge origin/main   # claude  (resolved second CMD_LOG.md conflict — PR #20 merged to main mid-review)
 git push origin feature/search-and-restaurant-detail-pages   # claude  (onto PR #21)
 git push -u origin feature/restaurants-list-and-cuisine-tags   # claude  (Gap A/B endpoint implementation, no pre-approval needed, per relaxed push rule)
 gh pr create --base main --head feature/restaurants-list-and-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
+git merge origin/main   # claude  (resolved CMD_LOG.md conflict — PR #22 merged mid-review, onto PR #21)
+git push origin HEAD:feature/search-and-restaurant-detail-pages   # claude  (onto PR #21)
 ```
