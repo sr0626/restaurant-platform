@@ -10,6 +10,27 @@ Format: **Decision** | Date | Reasoning | Alternatives Rejected
 
 ## Process & Documentation
 
+**Architect fixes what it finds (via the responsible dev agent) and verifies the fix before posting its verdict — standing rule, tightened again**
+2026-09-13 | User decision. Extends the 2026-09-12 verdict-comment rule
+(below): finding a problem and leaving a "do not merge until X" comment
+isn't the end state anymore — Architect gets it fixed. Flow: identify the
+problem and which agent owns it → get that agent to make the fix (direct
+dispatch if Architect's own task execution can do that, otherwise a
+precise fix description handed to the orchestrator) → re-check the fix
+actually resolves what was found (re-read the diff, re-run tests if
+relevant) → post one human-readable verdict comment covering what was
+checked, what was found, what got fixed and how it was verified, then the
+go/no-go. Escalates to the human instead of continuing to iterate if a fix
+attempt doesn't resolve the issue after one retry, or if the real fix
+needs a product/design decision not already in this file (a
+Decision-Making-Autonomy DECISIONS.md-gap case, not something to keep
+looping on alone). Codified in root `CLAUDE.md` ("Git Workflow" step 5)
+and `architect/CLAUDE.md` ("Code Review").
+*Rejected: leaving Architect's role as comment-only (pushes the fix-
+dispatch work onto the human every time, when Architect already has the
+context to do it directly), unlimited retry looping (could stall a PR
+indefinitely on something that actually needs a human call)*
+
 **Architect must post an explicit confirmation/approval verdict on every PR before it's surfaced to the human — standing rule, tightened from "adds comments"**
 2026-09-12 | User decision. The prior rule only required Architect to leave
 review comments; this raises the bar to an unambiguous go/no-go verdict

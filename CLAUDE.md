@@ -164,6 +164,15 @@ Every agent, every task, follows this flow — codified per-agent in each
    a PR Architect itself opened skips Architect self-review (no one
    designated to review the reviewer) and goes straight to human review,
    as before.
+   **When Architect finds a real problem, it doesn't just comment and stop
+   (added 2026-09-13)** — it gets the responsible dev agent to fix it,
+   re-verifies the fix, and only then posts the verdict comment, written
+   like a human tech lead's PR comment (what was checked, what was found,
+   what got fixed and how it was verified, then the go/no-go) — not a raw
+   problem dump the human has to act on themselves. See
+   `architect/CLAUDE.md` "Code Review" for the exact loop and its
+   escalate-to-human boundary (one retry, then stop if it's not resolving
+   or the fix needs a real product decision).
 6. **The human manually approves and merges. No agent ever merges a PR —
    its own or anyone else's — under any circumstance.**
 
