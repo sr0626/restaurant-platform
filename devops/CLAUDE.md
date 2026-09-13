@@ -83,6 +83,68 @@ each environment defeats the point of "tested this exact artifact"), then
 running the same `update-function-code` deploy step there. Design this when
 the second account actually exists, not speculatively now.
 
+**Migration-before-image, per environment (added 2026-09-12 — see
+DECISIONS.md "Terraform environment promotion").** Once this pipeline
+promotes across more than one environment, each environment's promotion step
+is two ordered sub-steps, never reversed: (1) a human runs Alembic `upgrade`
+against that environment's Aurora database using the migration files already
+reviewed on `main`; (2) only once that succeeds, the deploy step points that
+environment's Lambda at the new image digest. If the migration fails, the
+image does not move forward into that environment. This is why Architect's
+migrations default to additive/expand-contract (see DECISIONS.md) — it's what
+makes the brief window between step (1) and (2) safe for whichever image
+happens to be serving traffic at that moment.
+
+**Plan-all script, once more than one environment exists (light automation,
+never an apply).** "A human runs `terraform apply` against each environment
+in sequence" is fine at one environment; it gets error-prone and slow once
+`test`/`prod` exist and the module count under `/infra/modules` has grown.
+Build `infra/scripts/plan-all.sh` (or an equivalent DevOps/Infra-shared
+script) that loops over each environment's state key + var-file + profile,
+runs `terraform plan` for each, and prints/saves the three diffs together for
+human review in one pass. It never calls `apply` — that stays human-run,
+per-environment, exactly as today. This is a convenience layer over an
+unchanged guardrail, not a loosening of it.
+
+**Rollback playbook (added 2026-09-12 — see DECISIONS.md "Terraform rollback
+playbook").** App-code rollback is symmetric and cheap: re-run the deploy
+step with the previous image digest. Terraform rollback is not — reapplying
+an older commit diffs against *current* state, it doesn't restore a prior
+state snapshot, so a "rollback" apply can itself be destructive (e.g. drop a
+column/table that current data now depends on). The guardrails:
+- Roll forward, don't roll back: fix a bad apply with a new reviewed commit
+  that repairs current state, not by reapplying old history.
+- Every stateful resource (Aurora, the S3 media bucket, anything not
+  trivially recreated) carries `lifecycle { prevent_destroy = true }` from
+  the point it's created — a plan that would destroy/replace one of these
+  fails instead of quietly succeeding.
+- Any plan showing a destroy/replace on a `prevent_destroy`-guarded resource
+  is a hard stop — flag it to the human explicitly, don't let it ride along
+  as one line in a larger diff.
+
+**Hotfix path once `test`/`prod` exist (added 2026-09-12 — see DECISIONS.md
+"Hotfix path").** A critical bug found in `test` or `prod` still goes through
+the standard feature-branch → PR → Architect review → human merge flow — no
+long-lived branch, no skipped review. What changes for a genuinely urgent
+fix: label the PR `hotfix` so Architect's review can focus tightly
+(schema/security/scope, not full design) rather than skip; the human may
+promote straight to `prod` ahead of `test` if `test` doesn't reproduce the
+issue and explicitly approves the skip; but the same commit must be
+backfilled into `test` in the very next promotion pass, and the out-of-order
+promotion gets a `docs/CMD_LOG.md` note — environments never silently diverge
+on which commit their state reflects.
+
+**Multi-service scaling (added 2026-09-12 — see DECISIONS.md "Multi-service
+scaling").** A second Lambda function/service later is a copy of the existing
+pattern, not a redesign, once `infra/modules/ecr` and `infra/modules/lambda`
+carry a `service_name` variable (Infra's addition, defaulting to `"api"` so
+today's single-service call site is unaffected): a second `module "ecr"` /
+`module "lambda"` block with `service_name = "notifications"` (or whatever
+the service is), a second CI workflow (or a matrix job in the existing one)
+with its own `paths:` filter, and its own OIDC role scoped to that one repo
+and that one function — IAM scoping stays "one repo, one function" per
+service, never widened to cover both.
+
 ## Phase 1 Scope — What to Build Now
 - `backend/Dockerfile` (coordinate with Backend Dev — you consume it, you
   don't own its contents)

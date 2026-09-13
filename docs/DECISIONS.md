@@ -101,6 +101,165 @@ same-day fallback if the new version needs correcting)*
 
 ## Infrastructure & Hosting
 
+**Terraform environment promotion: one shared codebase on `main`, explicit per-environment state keys and var-files (workspaces rejected), migration-before-image sequencing**
+2026-09-12 | Joint Architect + DevOps decision, prompted by the user's
+question "container is good for app code, what about infra IaC — you can't
+containerize that." App code promotes by moving one built container image's
+digest forward through each environment's ECR/Lambda (see "Containerization"
+below). Infra can't promote an artifact the same way — Terraform has no
+build output to carry forward, only a codebase applied against per-environment
+state. Landed on:
+- **One Terraform codebase, no environment branches.** The reviewed commit on
+  `main` is what gets applied to every environment in turn — dev, then test,
+  then prod (see the hotfix exception below). Environment differences (prod
+  multi-AZ, larger Aurora `max_capacity`, etc.) are `var.env`-conditionals in
+  shared module code, never forked branches — a forked branch is exactly the
+  long-lived-branch drift problem the trunk-based git model was chosen to avoid.
+- **Explicit per-environment state keys, not Terraform workspaces.** Each
+  environment's state lives at its own S3 backend key
+  (`envs/<env>/terraform.tfstate`) and is applied with its own var-file
+  (`infra/envs/<env>.tfvars`) and its own AWS CLI profile/account. Workspaces
+  were considered and rejected: a workspace is selected by a `terraform
+  workspace select` call that leaves no trace in the command or CI job
+  config itself — it's easy to run a plan/apply against the wrong workspace
+  by omission. An explicit state key and var-file must be named in every
+  command, so "which environment am I about to touch" is visible in the
+  command line / CI job definition, not in mutable local CLI state. This
+  matters more, not less, as environment count grows.
+- **State stays single-per-environment (not split per module) through
+  Phase 1–2**, even as module count grows toward 3x. Splitting Terraform
+  state by domain (e.g. a separate `data-layer` state for Aurora vs. a
+  `compute` state for Lambda/API Gateway) is a real technique for limiting
+  blast radius and speeding up plan/apply, but it adds real coordination
+  overhead (cross-state data sources, more applies to sequence) that isn't
+  justified by module *count* alone. Revisit only if apply times become
+  painful or a real blast-radius incident argues for isolating a specific
+  domain (most likely candidate: splitting Aurora into its own state before
+  touching it in prod, once prod exists).
+- **Migrations promote before the image, within each environment's promotion
+  step — never the reverse.** Promoting to an environment means: (1) run
+  Alembic `upgrade` against that environment's Aurora database, confirm
+  success, (2) only then point that environment's Lambda at the new image
+  digest. If the migration fails, promotion to that environment stops there —
+  the image does not move forward. This is a human-run sequence per the
+  existing "never terraform apply / never run Alembic migrations" agent
+  guardrail — an agent generates the migration and the plan, a human runs
+  both steps against each environment in order.
+- **Migrations must default to additive/backward-compatible (expand-contract),
+  because the promotion window always has a moment where old app code faces
+  new-or-old schema and vice versa.** A migration that only adds a nullable
+  column or a new table is safe regardless of ordering. A destructive change
+  (drop/rename a column, tighten a NOT NULL, remove a table) must be split
+  into an expand phase (additive, ships now) and a later contract phase
+  (removes the old shape, ships only after every environment's app code no
+  longer reads it) — otherwise there's a real window, mid-promotion, where
+  either the old image or the new image can't run against the schema in
+  front of it.
+- **Destructive migrations get caught before prod by explicit PR-time
+  flagging, not by discovering it at apply time.** Architect already reviews
+  every PR (see "Every agent works on a feature branch..." above); any
+  migration that isn't purely additive must say so in the PR description
+  (what's destructive, why, what the expand/contract plan is) so it gets
+  extra scrutiny during that review — the same review gate the promotion
+  order relies on, not a new gate. Once `test` exists, a destructive
+  migration should be exercised there (ideally against a prod-like data
+  copy) before the same commit is promoted to prod — test is functioning as
+  the destructive-migration canary, not just a code-correctness canary.
+*Rejected: Terraform workspaces (implicit environment selection, no
+command-line/CI trace of which environment is targeted — rejected more
+confidently after this review, not just tentatively), one Terraform state
+file for all environments (defeats the isolation the separate-account
+structure already provides), splitting state per module/domain now (real
+technique, but not justified until module count or blast-radius risk
+actually causes pain — premature for Phase 1), rebuilding the migration
+history per environment branch (reintroduces the long-lived-branch drift the
+trunk-based git model exists to avoid), applying the image before the
+migration (would put new code in front of an old schema it wasn't written
+against)*
+
+**Terraform rollback playbook: infra rolls forward, not back — `prevent_destroy` on stateful resources, "plan shows a destroy" is a hard stop**
+2026-09-12 | Joint Architect + DevOps decision, same discussion as above.
+App-code rollback is cheap and symmetric: redeploy the previous image digest,
+done. Terraform rollback is NOT symmetric — reapplying an older commit against
+current state does not "undo" a destructive change; it computes a fresh diff
+against whatever exists *now*, which can mean deleting a resource (or a
+column, or a bucket) that current data now depends on. Landed on:
+- **Treat infra rollback as "roll forward with a corrective commit," not
+  "revert to an old commit."** The fix for a bad `apply` is a new, reviewed
+  commit that repairs the current state forward — not reapplying history
+  and hoping Terraform's diff reconstructs the old shape correctly.
+- **Every stateful/hard-to-recreate resource (Aurora cluster, S3 media
+  bucket, anything holding data that isn't trivially reproducible) gets a
+  `lifecycle { prevent_destroy = true }` block once created.** This is a
+  deliberate friction addition: a plan that would destroy/replace one of
+  these resources fails outright rather than silently succeeding, forcing a
+  human to explicitly remove the guard (a visible, reviewable action) before
+  a destructive apply can proceed.
+- **Any `terraform plan` output showing a destroy or a replace on a
+  `prevent_destroy`-guarded resource is a hard stop, not a routine apply** —
+  flag it explicitly to the human rather than treating it as one line in a
+  larger diff. This applies starting now, in `dev`, even though dev data
+  isn't precious yet — the guard is cheap to add at resource-creation time
+  and expensive to retrofit correctly later once real data and more
+  environments exist.
+*Rejected: no special handling for destructive plans (relies on someone
+noticing a `- destroy` line buried in a larger plan diff), only adding
+`prevent_destroy` once `test`/`prod` exist (defers a cheap guard to a point
+where retrofitting it is riskier and easier to forget)*
+**Signed off by user 2026-09-12** — Architect/DevOps flagged this specifically
+(applying `prevent_destroy` in `dev` before it's strictly needed) for explicit
+human sign-off rather than treating it as settled; approved as written.
+
+**Hotfix path for an environment beyond dev: still PR + review, expedited, prod can go ahead of test but must backfill test immediately after**
+2026-09-12 | Joint Architect + DevOps decision, same discussion — addresses
+"how does an urgent fix reach test/prod without a long-lived branch and
+without necessarily going through every earlier environment first." No new
+branch type and no skipped review: the standing git workflow (feature branch
+→ PR → Architect review → human merge) still applies. What's different for a
+genuinely urgent, environment-specific fix:
+- Label the PR `hotfix` in its title/description so Architect's review can be
+  scoped tighter and faster (schema/security/scope check, not a full design
+  review) — still required, never skipped.
+- The human may promote the merged commit to prod ahead of test if test
+  doesn't reproduce the issue and the human explicitly approves skipping
+  ahead — but the same commit must be promoted (backfilled) into test
+  immediately after, in the next promotion pass, not "whenever." Environments
+  are never allowed to silently diverge in what commit their state reflects;
+  skipping test's turn is a one-time expedite, not a standing exemption.
+- Every use of this exception is recorded (PR description + `docs/CMD_LOG.md`
+  entry noting the out-of-order promotion) so "we skipped test" stays visible
+  history, not a habit that erodes the promotion order by default.
+*Rejected: a dedicated long-lived hotfix branch (reintroduces the branch
+drift trunk-based git was chosen to avoid), skipping Architect review for
+speed (review is the scope/consistency gate for every PR, urgency isn't a
+reason to remove the only reviewer), silently allowing prod-ahead-of-test
+promotions with no record (makes environment drift invisible)*
+**Signed off by user 2026-09-12** — Architect/DevOps flagged the prod-ahead-
+of-test exception specifically (real speed-vs-drift-risk tradeoff) for
+explicit human sign-off rather than treating it as settled; approved as
+written, including the mandatory backfill-next-pass and CMD_LOG record.
+
+**Multi-service scaling: ECR/Lambda modules gain a `service_name` variable now, so a second service is a module-block copy, not a redesign**
+2026-09-12 | DevOps assessment, same discussion. `infra/modules/ecr` (see PR
+#2, `infra/ecr-container-lambda-image`) currently hard-codes the single-service
+naming convention `${var.project}-api-${var.env}`. A second Lambda
+function/service later (e.g. a notifications service) shouldn't require
+redesigning the module — it should be a second `module "ecr"` /
+`module "lambda"` block passing a different `service_name`, producing
+`${var.project}-${service_name}-${env}` repo/function names, plus a second
+CI workflow (or a matrix job in the existing one) with its own `paths:`
+filter and its own OIDC role scoped to that one repo and one function (never
+widened to cover both services). Flagged as a small addition Infra should
+make when it next touches the ECR/Lambda modules (add the variable with a
+default of `"api"` so the existing single-service call site doesn't change)
+rather than something to retrofit under time pressure when the second
+service actually shows up.
+*Rejected: waiting until a second service exists to add the variable (cheap
+now, forces a mid-migration module signature change later), one shared ECR
+repo for multiple services distinguished by tag prefix (loses per-service
+lifecycle policy and scan configuration, and IAM scoping to "one repo" no
+longer means "one service")*
+
 **Region: `us-east-1`, confirmed despite DFW being the initial market**
 2026-09-12 | Considered switching to a west-coast region given the DFW launch
 market, but geography doesn't favor it: us-west-1/us-west-2 are farther from
