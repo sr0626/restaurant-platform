@@ -10,6 +10,13 @@ Format: **Decision** | Date | Reasoning | Alternatives Rejected
 
 ## Process & Documentation
 
+**`docs/STATUS.md` — a live, bullet-only project status doc, updated on every PR merge/feature change**
+2026-09-13 | User wants an always-current snapshot of what's implemented per
+layer, separate from this decision log. Kept short (bullets, no prose) per
+user instruction. Same PR-required-but-skip-Architect-review treatment as
+BRD updates.
+*Rejected: folding status into DECISIONS.md (that's a history log, not a snapshot)*
+
 **Architect and the orchestrator decide judgment calls themselves and report the plan — standing rule**
 2026-09-12 | User decision: don't stop mid-task to ask about ambiguous
 design/schema/process questions with a reasonable answer (field naming, a

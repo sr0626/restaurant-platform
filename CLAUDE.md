@@ -237,6 +237,10 @@ indirectly and must follow the same principles:
   retention: current + 2 prior) — never delete an old version's file in the
   same change that creates a new one. Only clean up the oldest once a 4th
   version file would otherwise exist.
+- ALWAYS update `docs/STATUS.md` when a PR merges or a feature/layer's state
+  changes (added 2026-09-13) — keep it short, bullets only, not verbose.
+  Same as BRD: still needs a PR (branch protection), but skips Architect
+  review for a fast human merge — it's a status snapshot, not code.
 
 ## Decision-Making Autonomy (standing rule, added 2026-09-12)
 Architect and the orchestrator make the call on ambiguous design/schema/
