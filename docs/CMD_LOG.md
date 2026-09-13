@@ -94,4 +94,6 @@ git push -u origin feature/restaurants-list-and-cuisine-tags   # claude  (Gap A/
 gh pr create --base main --head feature/restaurants-list-and-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
 git merge origin/main   # claude  (resolved CMD_LOG.md conflict — PR #22 merged mid-review, onto PR #21)
 git push origin HEAD:feature/search-and-restaurant-detail-pages   # claude  (onto PR #21)
+git push -u origin feature/phase1-claim-flow-ui   # claude  (claim submission page + admin claims review queue, no pre-approval needed, per relaxed push rule)
+gh pr create --base main --head feature/phase1-claim-flow-ui --draft   # claude  (opened as draft per new draft-until-approved rule)
 ```
