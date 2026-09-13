@@ -8,7 +8,7 @@
 #   ecr         (no deps)
 #   cognito     → ses
 #   aurora      → networking
-#   iam         → aurora, s3, ecr, (stripe secrets defined inline)
+#   iam         → aurora, s3, ecr, cognito, (stripe secrets defined inline)
 #   lambda      → networking, iam, aurora, cognito, s3, ecr (image_uri)
 #   eventbridge → lambda
 #   amplify     → lambda, cognito, s3
@@ -161,6 +161,7 @@ module "iam" {
   stripe_webhook_secret_arn = aws_secretsmanager_secret.stripe_webhook_secret.arn
   ecr_repository_arn        = module.ecr.repository_arn
   github_repo_url           = var.github_repo_url
+  cognito_user_pool_arn     = module.cognito.user_pool_arn
 }
 
 # -------------------------------------------------------------------

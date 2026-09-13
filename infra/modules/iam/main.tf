@@ -83,6 +83,16 @@ resource "aws_iam_role_policy" "api_lambda_custom" {
           "logs:PutLogEvents"
         ]
         Resource = local.api_log_group_arn
+      },
+      {
+        # Read-only, single pool: resolves a location manager's email to their
+        # Cognito sub (backend/app/services/cognito_service.py). No admin,
+        # create, delete, or group-management actions — see infra/CLAUDE.md
+        # "IAM Least-Privilege Rules".
+        Sid      = "CognitoListUsersForManagerAssignment"
+        Effect   = "Allow"
+        Action   = ["cognito-idp:ListUsers"]
+        Resource = var.cognito_user_pool_arn
       }
     ]
   })
