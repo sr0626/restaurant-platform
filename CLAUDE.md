@@ -260,6 +260,10 @@ indirectly and must follow the same principles:
   retention: current + 2 prior) — never delete an old version's file in the
   same change that creates a new one. Only clean up the oldest once a 4th
   version file would otherwise exist.
+- ALWAYS update `docs/STATUS.md` when a PR merges or a feature/layer's state
+  changes (added 2026-09-13) — keep it short, bullets only, not verbose.
+  Same as BRD: still needs a PR (branch protection), but skips Architect
+  review for a fast human merge — it's a status snapshot, not code.
 - ALWAYS put BRD updates on a PR the same as anything else (branch
   protection on `main` requires this, no exceptions by file type — added
   2026-09-12) — BUT skip Architect's review gate for a BRD-only PR and

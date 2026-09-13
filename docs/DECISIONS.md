@@ -10,6 +10,13 @@ Format: **Decision** | Date | Reasoning | Alternatives Rejected
 
 ## Process & Documentation
 
+**`docs/STATUS.md` — a live, bullet-only project status doc, updated on every PR merge/feature change**
+2026-09-13 | User wants an always-current snapshot of what's implemented per
+layer, separate from this decision log. Kept short (bullets, no prose) per
+user instruction. Same PR-required-but-skip-Architect-review treatment as
+BRD updates.
+*Rejected: folding status into DECISIONS.md (that's a history log, not a snapshot)*
+
 **Feature-branch `git push` and `gh pr create` no longer need per-action human approval — standing rule**
 2026-09-13 | User decision, given after a session of pushing ~8 PRs one
 approval-prompt at a time. The pre-push approval gate added most of its
