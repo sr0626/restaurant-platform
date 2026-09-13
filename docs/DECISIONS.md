@@ -10,6 +10,28 @@ Format: **Decision** | Date | Reasoning | Alternatives Rejected
 
 ## Process & Documentation
 
+**PRs needing Architect review are opened as draft PRs; Architect marks ready-for-review on approval — standing rule**
+2026-09-13 | User decision: with push/PR-open no longer needing pre-approval
+(and Architect review now happening in the background, sometimes taking
+minutes), there was a real window where a PR sat open, mergeable, while
+Architect was still reviewing it — risking an accidental merge before the
+verdict lands. Fix: every PR that needs Architect review opens as a draft
+(`gh pr create --draft`) — GitHub disables the merge button entirely on a
+draft, so an accidental merge during review is now physically impossible,
+not just discouraged. Architect marks it ready (`gh pr ready <number>`)
+the moment it posts an approval verdict; a "do not merge until X" verdict
+leaves it in draft. PRs that already skip Architect review (Architect's
+own PRs, BRD-only PRs, `docs/STATUS.md`-only PRs) have no review-in-progress
+window to protect against, so they're opened ready-for-review directly, not
+draft — otherwise they'd need a manual ready-for-review step for no safety
+benefit. Codified in root `CLAUDE.md` ("Git Workflow" steps 4-5) and
+`architect/CLAUDE.md` ("Code Review").
+*Rejected: a GitHub Actions status check gating merge on a parsed
+Architect-verdict comment (real CI infrastructure for a problem draft PRs
+solve natively, with zero extra moving parts), relying on human discipline
+alone to check for Architect's comment before merging (exactly the failure
+mode that prompted this rule)*
+
 **Trivial doc-only bookkeeping (CMD_LOG entries, STATUS.md bumps) rides along on an existing PR or batches up — doesn't need its own standalone PR every time**
 2026-09-13 | User decision, given after a run of single-line PRs (a
 CMD_LOG.md entry logging one push, a one-line STATUS.md tweak) each showed

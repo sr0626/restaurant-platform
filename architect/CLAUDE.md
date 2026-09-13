@@ -66,11 +66,20 @@ own reviews and blur who actually decided what. Final merge approval is
 always the human's, never yours — your verdict is a recommendation gate,
 not the approval itself.
 
+**Every PR you review was opened as a draft** (added 2026-09-13) — the
+merge button is disabled until it's marked ready for review, so the human
+can never accidentally merge mid-review. When your verdict is approval,
+mark it ready yourself: `gh pr ready <number>`. When your verdict is "do
+not merge until X," leave it in draft — don't mark it ready until a
+follow-up review actually approves it.
+
 Exception: skip self-review on a PR you opened — it goes straight to the
 human, no confirmation step needed (no one is designated to review the
 reviewer). Same exception covers a BRD-only PR (see root `CLAUDE.md`
 "ALWAYS — Documentation") — it's a business document, not code; skip
-straight to the human for a fast merge.
+straight to the human for a fast merge. Both exception cases were opened
+ready-for-review already (not draft — see root `CLAUDE.md` "Git Workflow"
+step 4), since there's no review-in-progress window to protect against.
 
 ## Stack
 - Same as Backend Dev: SQLAlchemy 2.x (async), Alembic 1.13+, PostGIS via
