@@ -40,4 +40,5 @@ gh pr create --base main --head docs/project-status   # claude
 git push origin integration/phase1-backend-full   # claude  (id/slug fix, commit 1af489d, onto PR #7)
 git push origin docs/project-status   # claude  (STATUS.md refresh + .gitignore fix, onto PR #13)
 git push origin pr7-slug-test-fix:integration/phase1-backend-full   # claude  (Architect's slug-lookup test coverage, onto PR #7)
+git push origin docs/project-status   # claude  (PR #7 approved status update, onto PR #13)
 ```
