@@ -31,4 +31,7 @@ git push -u origin docs/cmd-log-updates   # claude
 gh pr create --base main --head docs/cmd-log-updates   # claude
 git merge origin/main   # claude  (resolved devops/CLAUDE.md add/add conflict on docs/environment-promotion-strategy)
 git push origin docs/environment-promotion-strategy   # claude
+git merge main   # claude  (resolved architect/CLAUDE.md add/add conflict on docs/architect-approval-gate)
+git push -u origin docs/architect-approval-gate   # claude
+gh pr create --base main --head docs/architect-approval-gate   # claude
 ```

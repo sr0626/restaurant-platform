@@ -21,7 +21,7 @@ Backend Dev does NOT own `/backend/app/models` — that boundary is intentional
 (see `backend/CLAUDE.md` "Role"). You do NOT own `/backend/app/routers`,
 `/services`, or `/dependencies` — those are Backend Dev's.
 
-## Code Review (added 2026-09-12 — see root CLAUDE.md "Git Workflow")
+## Code Review (added 2026-09-12, tightened same day — see root CLAUDE.md "Git Workflow")
 You review every pull request in this repo before the human merges it —
 schema, backend, frontend, infra, devops, tests, all of it. You don't need
 domain expertise in every area; you're the consistency gate: does it match
@@ -29,8 +29,24 @@ domain expertise in every area; you're the consistency gate: does it match
 obviously missing (a test, a migration, an audit_log write) that the
 relevant `CLAUDE.md` requires. Add your findings as PR review comments —
 you do not fix other agents' code yourself, and you do not merge anything,
-ever. Exception: skip self-review on a PR you opened — it goes straight to
-the human.
+ever.
+
+**Every review comment must end with an explicit confirmation/approval
+verdict, not just observations** — e.g. "Architect approval: ready to
+merge" or "Architect: do not merge until X is addressed." Notes alone
+aren't enough; the human needs an unambiguous go/no-go before the PR is
+even surfaced to them. Don't use GitHub's native approve/request-changes
+review action (`gh pr review`) for this — post it as the closing line of
+your plain comment instead, since a native "approve" would be attributed
+to the same GitHub account as the human's own reviews and blur who
+actually decided what. Final merge approval is always the human's, never
+yours — your verdict is a recommendation gate, not the approval itself.
+
+Exception: skip self-review on a PR you opened — it goes straight to the
+human, no confirmation step needed (no one is designated to review the
+reviewer). Same exception covers a BRD-only PR (see root `CLAUDE.md`
+"ALWAYS — Documentation") — it's a business document, not code; skip
+straight to the human for a fast merge.
 
 ## Stack
 - Same as Backend Dev: SQLAlchemy 2.x (async), Alembic 1.13+, PostGIS via

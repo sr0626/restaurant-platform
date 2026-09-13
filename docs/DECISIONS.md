@@ -10,6 +10,24 @@ Format: **Decision** | Date | Reasoning | Alternatives Rejected
 
 ## Process & Documentation
 
+**Architect must post an explicit confirmation/approval verdict on every PR before it's surfaced to the human — standing rule, tightened from "adds comments"**
+2026-09-12 | User decision. The prior rule only required Architect to leave
+review comments; this raises the bar to an unambiguous go/no-go verdict
+("Architect approval: ready to merge" / "Architect: do not merge until X"),
+and the PR must not be presented to the human as "ready for your review"
+until that verdict exists. Self-review exception unchanged and explicitly
+reconfirmed by the user: a PR Architect itself opened skips straight to
+human review, no one reviews the reviewer. Same exception extended to
+BRD-only PRs (business document, not code — see "Every BRD update..."
+entry below). Architect posts the verdict as the closing line of a plain
+PR comment, not via `gh pr review --approve` — a native GitHub approval
+would be attributed to the same account as the human's own reviews (no
+separate bot identity exists), blurring who actually decided what.
+*Rejected: using `gh pr review --approve`/`--request-changes` for the verdict
+(identity confusion, same GitHub account as the human), requiring Architect
+confirmation on its own PRs too (no reviewer for the reviewer — user
+explicitly confirmed keeping this exception when asked)*
+
 **Architect and the orchestrator decide judgment calls themselves and report the plan — standing rule**
 2026-09-12 | User decision: don't stop mid-task to ask about ambiguous
 design/schema/process questions with a reasonable answer (field naming, a
