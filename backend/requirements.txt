@@ -1,0 +1,15 @@
+# Schema-layer dependencies — owned by the Architect agent (models +
+# migrations only). Backend Dev extends this file with the app-layer
+# stack (fastapi, mangum, boto3, stripe, pytest-asyncio, etc.) per
+# backend/CLAUDE.md's "Stack" section — not duplicated here to avoid
+# two agents fighting over the same lines for unrelated reasons.
+
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+geoalchemy2==0.15.2
+pydantic==2.10.3
+
+# Local dev convenience: loads DATABASE_URL from a gitignored .env file
+# so app/db/session.py doesn't need an exported shell variable.
+python-dotenv==1.0.1

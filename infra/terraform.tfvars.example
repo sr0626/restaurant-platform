@@ -18,3 +18,10 @@ allowed_origins = [
 ]
 
 aurora_max_capacity = 4
+
+# Optional. Leave unset to default to the ECR repo's ":bootstrap" tag (see
+# main.tf "module lambda" comment) — that tag must be pushed manually, once,
+# before the very first apply of a new environment. DevOps's CI/CD pipeline
+# moves the running image forward after that; Terraform never overwrites it
+# (aws_lambda_function.api has lifecycle.ignore_changes = [image_uri]).
+# lambda_image_uri = "REPLACE_WITH_ECR_REPO_URL:bootstrap"

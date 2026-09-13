@@ -5,12 +5,20 @@
 #   networking  (no deps)
 #   ses         (no deps)
 #   s3          (no deps)
+#   ecr         (no deps)
 #   cognito     → ses
 #   aurora      → networking
-#   iam         → aurora, s3, (stripe secrets defined inline)
-#   lambda      → networking, iam, aurora, cognito, s3
+#   iam         → aurora, s3, ecr, (stripe secrets defined inline)
+#   lambda      → networking, iam, aurora, cognito, s3, ecr (image_uri)
 #   eventbridge → lambda
 #   amplify     → lambda, cognito, s3
+#
+# Note: iam.github_actions_role_arn scopes lambda:UpdateFunctionCode to the
+# API Lambda's ARN, but that ARN is constructed locally inside the iam
+# module from the known naming convention rather than taken from
+# module.lambda's output — module.lambda already depends on module.iam for
+# execution role ARNs, so the reverse reference would be a circular module
+# dependency (see infra/modules/iam/github_actions.tf).
 # -------------------------------------------------------------------
 
 data "aws_caller_identity" "current" {}
@@ -40,6 +48,19 @@ module "s3" {
   project    = var.project
   phase      = var.phase
   aws_region = var.aws_region
+}
+
+# -------------------------------------------------------------------
+# ECR — backend API container image repository (added 2026-09-12, see
+# DECISIONS.md "Containerization"). Building/pushing images is DevOps's
+# job; Terraform only owns the repo resource.
+# -------------------------------------------------------------------
+module "ecr" {
+  source = "./modules/ecr"
+
+  env     = var.env
+  project = var.project
+  phase   = var.phase
 }
 
 # -------------------------------------------------------------------
@@ -128,11 +149,42 @@ module "iam" {
   db_secret_arn             = module.aurora.db_secret_arn
   stripe_secret_key_arn     = aws_secretsmanager_secret.stripe_secret_key.arn
   stripe_webhook_secret_arn = aws_secretsmanager_secret.stripe_webhook_secret.arn
+  ecr_repository_arn        = module.ecr.repository_arn
+  github_repo_url           = var.github_repo_url
 }
 
 # -------------------------------------------------------------------
-# Lambda — API (Mangum/FastAPI) + deal-expiry; both in private subnets
+# Lambda — API (Mangum/FastAPI, container image) + deal-expiry (zip);
+# both in private subnets.
+#
+# `lambda_image_uri` bootstrap/CI-CD tension (flagged for review):
+# `aws_lambda_function.api` requires an image that already exists in ECR at
+# create time, but `module.ecr` starts out empty on a brand-new environment
+# — a real chicken-and-egg problem, not something Terraform code alone can
+# resolve. Resolved by defaulting to the repo's own `:bootstrap` tag rather
+# than `:latest`: IMMUTABLE tag mutability (module.ecr) means a tag can only
+# ever be pushed once, so `:latest` — a tag implicitly meant to be
+# overwritten — doesn't fit that policy, while a `:bootstrap` tag pushed
+# manually ONE TIME before the very first `terraform apply` does.
+#
+# Required one-time manual step before the first apply of a new environment
+# (human runs this — not Terraform, not this agent):
+#   docker pull public.ecr.aws/docker/library/hello-world:latest
+#   docker tag public.ecr.aws/docker/library/hello-world:latest \
+#     <module.ecr.repository_url output>:bootstrap
+#   docker push <module.ecr.repository_url output>:bootstrap
+# After that, DevOps's pipeline pushes real per-commit-SHA tags and moves
+# the running Lambda onto them via `aws lambda update-function-code`
+# (devops/CLAUDE.md) — never via `terraform apply` again. The
+# `lifecycle.ignore_changes = [image_uri]` in modules/lambda/main.tf is what
+# stops `terraform plan` from then wanting to revert those deploys back to
+# `:bootstrap`. `var.lambda_image_uri` (root, optional) can override this
+# default if a different bootstrap tag/digest is used.
 # -------------------------------------------------------------------
+locals {
+  lambda_image_uri = coalesce(var.lambda_image_uri, "${module.ecr.repository_url}:bootstrap")
+}
+
 module "lambda" {
   source = "./modules/lambda"
 
@@ -147,6 +199,7 @@ module "lambda" {
 
   api_lambda_role_arn         = module.iam.api_lambda_role_arn
   deal_expiry_lambda_role_arn = module.iam.deal_expiry_lambda_role_arn
+  lambda_image_uri            = local.lambda_image_uri
 
   db_secret_name       = module.aurora.db_secret_name
   media_bucket_name    = module.s3.media_bucket_name
