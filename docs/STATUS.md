@@ -8,7 +8,9 @@ that exist: the `dev` account itself, the Terraform state S3 bucket +
 DynamoDB lock table. `terraform apply` has never been run.
 
 ## Open PRs
-- None — all merged through #14 (see DECISIONS.md for what each did)
+- `feature/login-cognito-signin` (draft, awaiting Architect review) — real
+  Cognito email/password sign-in page, replacing the login placeholder
+- Otherwise none — all merged through #14 (see DECISIONS.md for what each did)
 
 ## Architect (schema + contracts)
 - [x] 13 entities modeled, 2 migrations written (never run)
