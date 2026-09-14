@@ -13,9 +13,9 @@ import PopularNearYou from "@/components/home/PopularNearYou";
 import PopularNearYouSkeleton from "@/components/home/PopularNearYouSkeleton";
 
 export const metadata: Metadata = {
-  title: "Indian Restaurant Discovery — Dallas-Fort Worth",
+  title: "Discover Your Taste — Dallas-Fort Worth",
   description:
-    "Find verified Indian restaurants across Dallas-Fort Worth, filter by regional cuisine and dietary needs.",
+    "Discover your taste across Dallas-Fort Worth — verified restaurants, filtered by regional cuisine and dietary needs.",
 };
 
 export default function HomePage() {
@@ -29,7 +29,7 @@ export default function HomePage() {
           Popular near you
         </h2>
         <p className="mt-1 text-sm text-brand-ink-muted">
-          Verified Indian restaurants around Dallas-Fort Worth.
+          Verified restaurants around Dallas-Fort Worth.
         </p>
 
         <div className="mt-6">

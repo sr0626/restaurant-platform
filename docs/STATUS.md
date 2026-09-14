@@ -7,6 +7,16 @@ for that). Phase 1 (MVP Core).
 that exist: the `dev` account itself, the Terraform state S3 bucket +
 DynamoDB lock table. `terraform apply` has never been run.
 
+**⚠ Brand name risk — "Swaad" needs to change before commercial launch.**
+Used throughout the frontend as a placeholder (it was never confirmed as a
+final name). Real conflict found: "Swad" is a decades-old, actively
+operating Indian grocery brand (spices/snacks), and "Indian Swaad" was a
+registered US trademark specifically for restaurant/hotel services
+(cancelled 2020, but shows direct precedent in this exact category). User
+decision 2026-09-13: keep "Swaad" as the working placeholder for now (it's
+centralized in a handful of files, easy to swap), but pick and clear a real
+name before going live. Not a Phase 1 blocker, but flagged as urgent.
+
 ## Open PRs
 - None — all merged through #28 (see DECISIONS.md for what each did)
 

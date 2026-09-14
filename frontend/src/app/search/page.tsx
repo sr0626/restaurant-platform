@@ -46,7 +46,7 @@ export function generateMetadata({ searchParams }: SearchPageProps): Metadata {
   return {
     title: chip ? `${chip.display_name} Restaurants — Search Results` : "Search Results",
     description:
-      "Browse verified Indian restaurants across Dallas-Fort Worth, filtered by regional cuisine and dietary needs.",
+      "Browse verified restaurants across Dallas-Fort Worth, filtered by regional cuisine and dietary needs.",
   };
 }
 
@@ -62,7 +62,7 @@ export default function SearchPage({ searchParams }: SearchPageProps) {
           Search results
         </h1>
         <p className="mt-1 text-sm text-brand-ink-muted">
-          Verified Indian restaurants around Dallas-Fort Worth.
+          Verified restaurants around Dallas-Fort Worth.
         </p>
 
         <div className="mt-6">
