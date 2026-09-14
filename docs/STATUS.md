@@ -8,7 +8,9 @@ that exist: the `dev` account itself, the Terraform state S3 bucket +
 DynamoDB lock table. `terraform apply` has never been run.
 
 ## Open PRs
-- None — all merged through #23 (see DECISIONS.md for what each did)
+- #26 (`docs/PROJECT_PLAN.csv`) and #27 (claim flow + admin queue,
+  Architect-approved) — otherwise all merged through #25 (see DECISIONS.md
+  for what each did)
 
 ## Architect (schema + contracts)
 - [x] 13 entities modeled, 2 migrations written (never run)
