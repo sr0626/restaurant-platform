@@ -10,6 +10,27 @@ Format: **Decision** | Date | Reasoning | Alternatives Rejected
 
 ## Process & Documentation
 
+**`docs/CMD_LOG.md` is written only by the orchestrator, in a batch, never as a commit on a feature/fix/docs branch — standing rule**
+2026-09-13 | User decision, given after CMD_LOG.md entries caused a merge
+conflict on nearly every PR in a row (#20, #21, #22, #23, #24, #26 all hit
+it). Root cause: every branch independently appended to the same last line
+of the same file — a mechanical, guaranteed collision with zero actual
+content disagreement, not a real editorial conflict. Fix: dispatched agents
+stop adding a CMD_LOG commit to their own branch — they report what they
+ran in their final task report instead. The orchestrator (who dispatches
+every logged action, or runs it directly) is the sole writer, appending
+entries in one batch on a dedicated branch after a wave of work lands, so
+the file has one writer at a time instead of N concurrent ones. What gets
+logged and why (audit trail for every push/AWS command) is unchanged — only
+who writes it and when. `docs/STATUS.md` keeps its existing "ride along on
+a substantive branch, or batch" treatment (Merge Hygiene) — it doesn't
+generate the same append-conflict pattern since its edits are targeted
+content changes, not everyone appending to one shared tail.
+*Rejected: keeping CMD_LOG entries on feature branches and just resolving
+the conflict each time (that's the status quo that prompted this — pure
+toil with no benefit), moving CMD_LOG.md to a per-branch or per-day file
+(defeats the point of one linear log a human can skim)*
+
 **`docs/PROJECT_PLAN.csv` — a detailed row-per-feature/task tracker with full BRD traceability, distinct from `docs/STATUS.md`'s quick snapshot**
 2026-09-13 | User decision: `docs/STATUS.md` is a bullet-only "what's true right
 now" snapshot, but there was no single place that mapped the platform's ENTIRE

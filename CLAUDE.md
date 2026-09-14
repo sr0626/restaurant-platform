@@ -185,25 +185,31 @@ Every agent, every task, follows this flow — codified per-agent in each
 6. **The human manually approves and merges. No agent ever merges a PR —
    its own or anyone else's — under any circumstance.**
 
-### Merge Hygiene (standing rule, added 2026-09-13)
+### Merge Hygiene (standing rule, added 2026-09-13, CMD_LOG carve-out added same day)
 Don't make the human review and merge a PR for every trivial doc-only
-change. A `docs/CMD_LOG.md` entry or a one-line `docs/STATUS.md` bump is
-not, on its own, significant work — it's bookkeeping:
+change. A one-line `docs/STATUS.md` bump is not, on its own, significant
+work — it's bookkeeping:
 - **Fold it into whatever substantive PR it's already related to.** If
-  you're logging a push that's part of a feature/fix/infra PR, add that
-  log line as another commit on that same branch, not a separate PR.
-- **When there's no substantive PR to attach to** (e.g. logging a push
-  that already landed), batch several small log/status updates together
-  into one PR rather than opening one per line — it's fine for a doc-only
-  PR to lag behind by a few entries and catch up in one shot.
-- This doesn't relax the underlying rules — every push and AWS command
-  still gets logged (see "ALWAYS — Command Log"), `docs/STATUS.md` still
-  gets updated when state changes (see "ALWAYS — Documentation") — it
-  just changes *when* those edits become their own PR versus riding along
-  with something else. Reserve a standalone PR (and the human's merge
+  you're updating STATUS.md as part of a feature/fix/infra PR, add that
+  change as another commit on that same branch, not a separate PR.
+- **When there's no substantive PR to attach to**, batch several small
+  STATUS.md updates together into one PR rather than opening one per
+  change — it's fine for a doc-only PR to lag behind a bit and catch up
+  in one shot.
+- This doesn't relax the underlying rule — `docs/STATUS.md` still gets
+  updated when state changes (see "ALWAYS — Documentation") — it just
+  changes *when* that edit becomes its own PR versus riding along with
+  something else. Reserve a standalone PR (and the human's merge
   attention) for changes that are actually worth reviewing on their own:
   a feature, a fix, a schema/contract change, a real process/decision
   change — not routine bookkeeping.
+- **`docs/CMD_LOG.md` is the one exception to "fold it into the current
+  branch"** — see "ALWAYS — Command Log" below. Riding a CMD_LOG entry
+  along on a feature branch is exactly what caused a merge conflict on
+  nearly every PR this session (every branch appending to the same last
+  line of the same file). CMD_LOG entries never go on a feature/fix/docs
+  branch at all now — the orchestrator batches them separately, directly,
+  after work lands.
 
 ## Universal Guardrails (apply to ALL agents)
 
@@ -260,17 +266,33 @@ indirectly and must follow the same principles:
   read-only-seeming commands (`aws s3 ls`, `aws sts get-caller-identity`) —
   ask first regardless. No standing approval accumulates across a session.
 - NEVER let a `git push` or an AWS CLI/SDK command go unlogged — see the
-  "ALWAYS — Command Log" rule below, no exceptions. This still applies even
-  though feature-branch pushes no longer need pre-approval — log after the
-  fact, same as before.
+  "ALWAYS — Command Log" rule below. What changed 2026-09-13: logging still
+  always happens, but individual agents no longer write the log entry
+  themselves onto their own branch (see below for why and the new flow).
 
-### ALWAYS — Command Log (no exceptions, standing rule)
+### ALWAYS — Command Log (no exceptions on WHAT gets logged; HOW changed 2026-09-13)
 - ALWAYS record every `git push`, every AWS CLI/SDK command, and every
-  `terraform plan`/`apply` in `docs/CMD_LOG.md` — grouped by date, in
-  execution order, tagged `# user` or `# claude`. Keep it to just the
-  command list, no description or explanation. Unchanged by the 2026-09-13
-  push-approval relaxation — every push still gets logged, it just no
-  longer needs a pre-approval before it happens.
+  `terraform plan`/`apply` in `docs/CMD_LOG.md`, grouped by date, in
+  execution order, tagged `# user` or `# claude` — command list only, no
+  description or explanation. This requirement itself hasn't changed.
+- **What changed: individual agents (Backend Dev, Frontend Dev, Architect,
+  etc.) do NOT add a `docs/CMD_LOG.md` commit to their own feature/fix/docs
+  branch anymore.** Every branch independently appending to the same last
+  line of the same file was a guaranteed, recurring merge conflict — nearly
+  every PR this session was hitting it, purely mechanically, with zero
+  actual content disagreement. Report what you ran (the exact commands) in
+  your task's final report to the orchestrator instead of committing it.
+- **The orchestrator is the sole writer of `docs/CMD_LOG.md`.** It collects
+  what every dispatched agent (and itself) actually ran and appends it in
+  one batch, directly on a dedicated log-only branch/PR, after a wave of
+  work lands — not interleaved commit-by-commit with feature work. This
+  keeps the file's write pattern to one writer at a time, sequenced, so it
+  stops colliding with everything else.
+- This is the same spirit as "Merge Hygiene" below (bookkeeping shouldn't
+  generate PR noise or block real work) taken one step further: it's not
+  just about avoiding a *standalone PR* per line anymore, it's about
+  avoiding commits on OTHER PRs' branches entirely, since those are exactly
+  what was conflicting.
 
 ### ALWAYS — Quality
 - ALWAYS write a test alongside every new endpoint, component, or Lambda
