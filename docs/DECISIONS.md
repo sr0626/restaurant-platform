@@ -720,6 +720,27 @@ Owner adds new location during free period — it gets the benefit too.
 
 ## Features & Product
 
+**"Swaad" is a placeholder brand name with a real trademark conflict — must change before commercial launch**
+2026-09-14 | While building homepage marketing copy, checked whether "Swaad"
+(the placeholder name used throughout the frontend since the design-canvas
+mockups) is safe to keep. It isn't: "Swad" is a decades-old, actively
+operating Indian grocery brand (spices/snacks/ready-to-eat,
+swadfoods.com), and "Indian Swaad" was a registered US trademark
+specifically for **restaurant and hotel services** — this platform's exact
+category — filed 2012, registered 2014, cancelled 2020 for a Section 8
+lapse (not currently enforced, but shows direct precedent for the name in
+this exact services class). User decision: keep "Swaad" as the working
+placeholder for now — it's centralized in a handful of frontend files
+(`layout.tsx`, `page.tsx`, `TopBar.tsx`, `Hero.tsx`, `search/page.tsx`),
+cheap to swap — but pick and clear a real name (USPTO TESS search minimum,
+ideally attorney review) before any commercial launch. Not a Phase 1
+blocker; tracked in `docs/STATUS.md` as an urgent flagged item so it isn't
+forgotten once Phase 1 work wraps up.
+*Rejected: renaming immediately (user explicitly wants to keep moving on
+Phase 1 functionality first, not block on brand-naming work right now),
+ignoring the conflict (real legal/business risk for an eventual commercial
+product, not worth the exposure)*
+
 **Homepage/search visual direction: "Spice Market" — warm saffron/chili palette, Space Grotesk + Manrope, tokenized theme**
 2026-09-13 | User decision, picked from a 12-option design canvas (originally
 5, expanded to 12 after two rounds of "these look old/simple" and "give me

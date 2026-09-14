@@ -27,11 +27,11 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   title: {
-    default: "Indian Restaurant Discovery — Dallas-Fort Worth",
-    template: "%s | Indian Restaurant Discovery",
+    default: "Swaad — Discover Your Taste, Dallas-Fort Worth",
+    template: "%s | Swaad",
   },
   description:
-    "Find verified Indian restaurants across Dallas-Fort Worth, filter by regional cuisine and dietary needs, and see deals from registered restaurants.",
+    "Discover your taste across Dallas-Fort Worth — verified restaurants, filtered by regional cuisine and dietary needs, with deals from registered restaurants.",
 };
 
 export default function RootLayout({
