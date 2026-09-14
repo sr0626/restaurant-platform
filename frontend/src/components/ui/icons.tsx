@@ -72,3 +72,43 @@ export function ImageIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Added for the claim submission form's document-upload proof method. */
+export function UploadIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M12 15.5V4.5" />
+      <path d="M8 8.5l4-4 4 4" />
+      <path d="M4.5 15.5V18a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2.5" />
+    </svg>
+  );
+}
+
+/** Added for the admin claims queue's approve action. */
+export function CheckIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
+/** Added for the admin claims queue's reject action. */
+export function XIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+/** Added for the claim submission form's pending-review success state. */
+export function ClipboardCheckIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <rect x="5.5" y="4.5" width="13" height="16" rx="2" />
+      <path d="M9 4.5V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 4v.5" />
+      <path d="M9 13l2 2 4-4.5" />
+    </svg>
+  );
+}
