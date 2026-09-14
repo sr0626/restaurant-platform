@@ -1,0 +1,275 @@
+"use server";
+
+// Server Actions backing the location editor's client components (info
+// form, hours editor, photo manager, manager assignment) — same
+// "keep the Cognito access token server-side" rationale as
+// frontend/src/app/claim/actions.ts and
+// frontend/src/app/admin/claims/actions.ts. Every action independently
+// re-derives the session from the httpOnly cookie (never trusts a role/id
+// passed in from the client) since a Server Action is a real network
+// endpoint Next.js exposes, callable on its own. The underlying typed
+// /lib/api/locations.ts calls still hit the real backend, which
+// re-validates ownership/assignment server-side on every write (root
+// CLAUDE.md "Permission model") — these actions are a thin, safe bridge,
+// not a second source of truth for authorization.
+import { ApiError } from "@/lib/api/client";
+import {
+  assignLocationManager,
+  createLocationPhoto,
+  deleteLocationPhoto,
+  getLocationPhotoUploadUrl,
+  removeLocationManager,
+  updateLocation,
+  updateLocationHours,
+  updateLocationPhoto,
+} from "@/lib/api/locations";
+import { getServerSession } from "@/lib/auth/session";
+import {
+  assignLocationManagerSchema,
+  createPhotoSchema,
+  photoUploadUrlSchema,
+  updateLocationHoursSchema,
+  updateLocationSchema,
+} from "@/lib/validation/location";
+import type {
+  LocationDetail,
+  LocationHour,
+  LocationManager,
+  Photo,
+  PhotoUploadUrlResponse,
+  UpdateLocationHoursInput,
+} from "@/types/location";
+import type { UserRole } from "@/types/auth";
+
+type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
+async function requireLocationSession(): Promise<
+  { ok: true; accessToken: string; role: UserRole } | { ok: false; error: string }
+> {
+  const session = await getServerSession();
+  if (!session) {
+    return { ok: false, error: "Your session has expired. Please sign in again." };
+  }
+  if (session.role !== "owner" && session.role !== "manager") {
+    return { ok: false, error: "You don't have access to this location." };
+  }
+  return { ok: true, accessToken: session.accessToken, role: session.role };
+}
+
+function messageFor(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) return error.message;
+  return fallback;
+}
+
+/** PATCH /locations/{id} — info/address/contact fields. */
+export async function updateLocationInfoAction(
+  locationId: number,
+  input: unknown
+): Promise<ActionResult<LocationDetail>> {
+  const auth = await requireLocationSession();
+  if (!auth.ok) return auth;
+
+  const parsed = updateLocationSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Please check the form and try again.",
+    };
+  }
+
+  try {
+    const location = await updateLocation(locationId, parsed.data, auth.accessToken);
+    return { ok: true, data: location };
+  } catch (error) {
+    return { ok: false, error: messageFor(error, "Something went wrong saving these details.") };
+  }
+}
+
+/** PUT /locations/{id}/hours — full week replacement. */
+export async function updateLocationHoursAction(
+  locationId: number,
+  input: unknown
+): Promise<ActionResult<LocationHour[]>> {
+  const auth = await requireLocationSession();
+  if (!auth.ok) return auth;
+
+  const parsed = updateLocationHoursSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Please check the hours and try again.",
+    };
+  }
+
+  try {
+    // zod's z.number().min(0).max(6) infers as `number`, not the narrower
+    // `DayOfWeek` union — the runtime range check already guarantees 0..6,
+    // this cast just tells TS what the schema already enforces.
+    const result = await updateLocationHours(
+      locationId,
+      parsed.data as UpdateLocationHoursInput,
+      auth.accessToken
+    );
+    return { ok: true, data: result.hours };
+  } catch (error) {
+    return { ok: false, error: messageFor(error, "Something went wrong saving hours.") };
+  }
+}
+
+/**
+ * POST /locations/{id}/photos/upload-url — step 1 of the presigned upload.
+ * The client PUTs the file directly to the returned `upload_url` (never
+ * through this action/Lambda, root CLAUDE.md's S3 presigned-URL pattern),
+ * then calls `createLocationPhotoAction` below with the same `s3_key`.
+ */
+export async function getLocationPhotoUploadUrlAction(
+  locationId: number,
+  contentType: string
+): Promise<ActionResult<PhotoUploadUrlResponse>> {
+  const auth = await requireLocationSession();
+  if (!auth.ok) return auth;
+
+  const parsed = photoUploadUrlSchema.safeParse({ content_type: contentType });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Unsupported image type.",
+    };
+  }
+
+  try {
+    const result = await getLocationPhotoUploadUrl(locationId, parsed.data, auth.accessToken);
+    return { ok: true, data: result };
+  } catch (error) {
+    return { ok: false, error: messageFor(error, "Could not start the photo upload.") };
+  }
+}
+
+/** POST /locations/{id}/photos — step 2, records the row after the S3 PUT succeeds. */
+export async function createLocationPhotoAction(
+  locationId: number,
+  s3Key: string,
+  isCover: boolean
+): Promise<ActionResult<Photo>> {
+  const auth = await requireLocationSession();
+  if (!auth.ok) return auth;
+
+  const parsed = createPhotoSchema.safeParse({ s3_key: s3Key, is_cover: isCover });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid photo upload." };
+  }
+
+  try {
+    const photo = await createLocationPhoto(locationId, parsed.data, auth.accessToken);
+    return { ok: true, data: photo };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) {
+      return {
+        ok: false,
+        error: "Gallery photo limit reached for this location's tier.",
+      };
+    }
+    return { ok: false, error: messageFor(error, "Could not save the uploaded photo.") };
+  }
+}
+
+/** PATCH /locations/{id}/photos/{photo_id} — promote an existing gallery photo to cover. */
+export async function setLocationPhotoCoverAction(
+  locationId: number,
+  photoId: number
+): Promise<ActionResult<Photo>> {
+  const auth = await requireLocationSession();
+  if (!auth.ok) return auth;
+
+  try {
+    const photo = await updateLocationPhoto(
+      locationId,
+      photoId,
+      { is_cover: true },
+      auth.accessToken
+    );
+    return { ok: true, data: photo };
+  } catch (error) {
+    return { ok: false, error: messageFor(error, "Could not set this photo as the cover.") };
+  }
+}
+
+/** DELETE /locations/{id}/photos/{photo_id}. */
+export async function deleteLocationPhotoAction(
+  locationId: number,
+  photoId: number
+): Promise<ActionResult<null>> {
+  const auth = await requireLocationSession();
+  if (!auth.ok) return auth;
+
+  try {
+    await deleteLocationPhoto(locationId, photoId, auth.accessToken);
+    return { ok: true, data: null };
+  } catch (error) {
+    return { ok: false, error: messageFor(error, "Could not delete this photo.") };
+  }
+}
+
+/**
+ * POST /locations/{id}/managers — auth: owner only (docs/API_CONTRACTS.md
+ * "no admin, no manager path"). Re-checked here even though the backend
+ * enforces it too, per the task's "owner-only, not manager-editable"
+ * requirement for this whole section.
+ */
+export async function assignLocationManagerAction(
+  locationId: number,
+  managerEmail: string
+): Promise<ActionResult<LocationManager>> {
+  const auth = await requireLocationSession();
+  if (!auth.ok) return auth;
+  if (auth.role !== "owner") {
+    return { ok: false, error: "Only the location's owner can assign managers." };
+  }
+
+  const parsed = assignLocationManagerSchema.safeParse({ manager_email: managerEmail });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Enter a valid email address.",
+    };
+  }
+
+  try {
+    const manager = await assignLocationManager(locationId, parsed.data, auth.accessToken);
+    return { ok: true, data: manager };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.status === 404) {
+        return {
+          ok: false,
+          error: "No registered user exists with that email — they need to sign up first.",
+        };
+      }
+      return { ok: false, error: error.message };
+    }
+    return { ok: false, error: "Could not assign this manager. Please try again." };
+  }
+}
+
+/**
+ * DELETE /locations/{id}/managers/{manager_id} — auth: owner or admin per
+ * the contract, but restricted to owner here too since this whole section
+ * is owner-only in the portal UI (no manager-editable path).
+ */
+export async function removeLocationManagerAction(
+  locationId: number,
+  managerId: number
+): Promise<ActionResult<null>> {
+  const auth = await requireLocationSession();
+  if (!auth.ok) return auth;
+  if (auth.role !== "owner") {
+    return { ok: false, error: "Only the location's owner can remove managers." };
+  }
+
+  try {
+    await removeLocationManager(locationId, managerId, auth.accessToken);
+    return { ok: true, data: null };
+  } catch (error) {
+    return { ok: false, error: messageFor(error, "Could not remove this manager.") };
+  }
+}

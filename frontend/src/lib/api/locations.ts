@@ -1,10 +1,14 @@
 // Typed client for /locations (restaurant_location) and its sub-resources
-// (hours, photos) — docs/API_CONTRACTS.md "Locations (`restaurant_location`)".
+// (hours, photos, managers) — docs/API_CONTRACTS.md "Locations
+// (`restaurant_location`)" and "Location Managers (`location_manager`)".
 import { apiFetch } from "./client";
 import type {
+  AssignLocationManagerInput,
   CreateLocationInput,
   CreatePhotoInput,
   LocationDetail,
+  LocationManager,
+  LocationManagersResponse,
   Photo,
   PhotoUploadUrlInput,
   PhotoUploadUrlResponse,
@@ -133,6 +137,61 @@ export async function deleteLocationPhoto(
 ): Promise<void> {
   return apiFetch<void>(
     `/locations/${id}/photos/${photoId}`,
+    { method: "DELETE" },
+    { accessToken }
+  );
+}
+
+/**
+ * POST /locations/{id}/managers — auth: owner only (must own the parent
+ * brand). No admin path, no manager-assigns-manager path — see
+ * docs/API_CONTRACTS.md "POST /locations/{id}/managers".
+ */
+export async function assignLocationManager(
+  id: number,
+  input: AssignLocationManagerInput,
+  accessToken: string
+): Promise<LocationManager> {
+  return apiFetch<LocationManager>(
+    `/locations/${id}/managers`,
+    { method: "POST", body: JSON.stringify(input) },
+    { accessToken }
+  );
+}
+
+/**
+ * GET /locations/{id}/managers — auth: owner (owns parent brand), admin, or
+ * a manager with an active assignment on this location. `activeOnly` is
+ * forced true server-side for a manager caller regardless of what's passed
+ * here (docs/API_CONTRACTS.md).
+ */
+export async function getLocationManagers(
+  id: number,
+  params: { activeOnly?: boolean } = {},
+  accessToken: string
+): Promise<LocationManagersResponse> {
+  const query = params.activeOnly ? "?active_only=true" : "";
+  return apiFetch<LocationManagersResponse>(
+    `/locations/${id}/managers${query}`,
+    { method: "GET" },
+    { accessToken }
+  );
+}
+
+/**
+ * DELETE /locations/{id}/managers/{manager_id} — auth: owner (owns parent
+ * brand) or admin. Soft-deactivate (is_active=false), idempotent — calling
+ * again on an already-inactive row still returns 204.
+ * `manager_id` is the assignment row's own PK (`location_manager.id`), not
+ * the manager's `user_id`.
+ */
+export async function removeLocationManager(
+  id: number,
+  managerId: number,
+  accessToken: string
+): Promise<void> {
+  return apiFetch<void>(
+    `/locations/${id}/managers/${managerId}`,
     { method: "DELETE" },
     { accessToken }
   );

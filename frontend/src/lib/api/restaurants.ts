@@ -9,6 +9,35 @@ import type {
   UpdateRestaurantInput,
 } from "@/types/restaurant";
 
+/**
+ * GET /restaurants — auth: owner or admin (docs/API_CONTRACTS.md, added
+ * 2026-09-13 to unblock the owner portal dashboard). Owner caller: always
+ * implicitly filtered to their own `owner_id` server-side — no query param
+ * can widen this. Admin caller: optional `ownerId` filter, omitted returns
+ * all brands.
+ *
+ * FLAGGED CONTRACT GAP (see this PR's description): there is no manager
+ * path for this endpoint at all — "Auth: owner or admin" only. A manager
+ * caller gets a 403, so this function cannot be used to list a manager's
+ * assigned locations; the dashboard page handles that role separately.
+ */
+export async function getMyRestaurants(
+  params: PaginationParams & { ownerId?: number } = {},
+  accessToken: string
+): Promise<PaginatedResponse<RestaurantBrand>> {
+  const query = toQueryString({
+    owner_id: params.ownerId,
+    page: params.page,
+    page_size: params.page_size,
+  });
+
+  return apiFetch<PaginatedResponse<RestaurantBrand>>(
+    `/restaurants${query}`,
+    { method: "GET" },
+    { accessToken }
+  );
+}
+
 /** GET /restaurants/{id} — public. Used by the SSR listing page. */
 export async function getRestaurantById(id: number): Promise<RestaurantBrand> {
   return apiFetch<RestaurantBrand>(
