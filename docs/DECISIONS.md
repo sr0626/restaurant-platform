@@ -31,6 +31,32 @@ the conflict each time (that's the status quo that prompted this — pure
 toil with no benefit), moving CMD_LOG.md to a per-branch or per-day file
 (defeats the point of one linear log a human can skim)*
 
+**`docs/PROJECT_PLAN.csv` — a detailed row-per-feature/task tracker with full BRD traceability, distinct from `docs/STATUS.md`'s quick snapshot**
+2026-09-13 | User decision: `docs/STATUS.md` is a bullet-only "what's true right
+now" snapshot, but there was no single place that mapped the platform's ENTIRE
+BRD scope — Phase 1 through Phase 4, including infra/DevOps tasks as first-
+class rows, not just customer-facing features — against real implementation
+status. Added `docs/PROJECT_PLAN.csv`: one row per BRD feature/task, columns
+`Feature/Task`, `BRD Section`, `BRD Version`, `Phase`, `Layer/Owner`, `Status`
+(Not Started / In Progress / Done / Blocked), `PR/Reference`, `Notes`. Built by
+reading the full BRD (confirmed current version: v3.6,
+`docs/BRD_v36_Restaurant_Platform.docx`) and cross-referencing every row
+against actual code (`backend/app/routers`, `frontend/src/app`,
+`infra/modules`, `.github/workflows`) rather than trusting prior status claims
+— this surfaced several gaps `docs/STATUS.md` hadn't called out explicitly
+(e.g. the owner portal, claim-flow UI, and admin pages are auth-gated
+placeholders, not built; no `/follow` API exists despite the `user_follow`
+table; the S3 image resize Lambda from BRD 5.3 was never built; `orchestrator.py`
+doesn't exist despite being listed as "active from Phase 1"). `docs/STATUS.md`
+is unchanged in purpose and stays the fast bullet snapshot; the two files are
+updated together (same trigger — see root `CLAUDE.md` "ALWAYS — Documentation")
+but never merged into one file.
+*Rejected: folding this level of detail into `docs/STATUS.md` (would turn a
+short live snapshot into an unreadable wall of rows), tracking only what's
+built so far instead of the full BRD scope (defeats the point of BRD
+traceability — a reader needs to see Phase 2/3/4 scope too, marked Not
+Started, not just a done-list)*
+
 **PRs needing Architect review are opened as draft PRs; Architect marks ready-for-review on approval — standing rule**
 2026-09-13 | User decision: with push/PR-open no longer needing pre-approval
 (and Architect review now happening in the background, sometimes taking
