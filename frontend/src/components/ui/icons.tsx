@@ -112,3 +112,58 @@ export function ClipboardCheckIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Added for the owner portal's info-edit sections (location editor). */
+export function PencilIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M15.5 4.5l4 4L8 20l-4.5 1L4.5 16.5 15.5 4.5z" />
+      <path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+
+/** Added for the owner portal's photo/manager removal actions. */
+export function TrashIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M4.5 7h15" />
+      <path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2" />
+      <path d="M6.5 7l1 12a2 2 0 0 0 2 1.9h5a2 2 0 0 0 2-1.9l1-12" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+/** Added for the owner portal's "add photo" / "add manager" actions. */
+export function PlusIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+/** Added for the location editor's manager assignment section. */
+export function UsersIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <circle cx="9" cy="8.5" r="3" />
+      <path d="M3.5 19c.6-3 2.7-5 5.5-5s4.9 2 5.5 5" />
+      <circle cx="17" cy="8.5" r="2.5" />
+      <path d="M15.5 14c1.8.6 3.1 2.2 3.9 4.5" />
+    </svg>
+  );
+}
+
+/** Added for the owner portal dashboard's brand cards. */
+export function StoreIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M4 9.5l1-5h14l1 5" />
+      <path d="M4.5 9.5a2.25 2.25 0 0 0 4.5 0 2.25 2.25 0 0 0 4.5 0 2.25 2.25 0 0 0 4.5 0" />
+      <path d="M5 9.5V20h14V9.5" />
+      <path d="M10 20v-5.5h4V20" />
+    </svg>
+  );
+}

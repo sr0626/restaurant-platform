@@ -124,3 +124,30 @@ export interface Photo {
 
 /** Body for PATCH /locations/{id}/photos/{photo_id}. */
 export type UpdatePhotoInput = Partial<Pick<Photo, "display_order" | "is_cover">>;
+
+/**
+ * One row from GET/POST /locations/{id}/managers
+ * (docs/API_CONTRACTS.md "Location Managers (`location_manager`)").
+ * `email` is a read-time-resolved Cognito lookup, not a stored column —
+ * `null` if the lookup fails for a since-deleted Cognito user.
+ */
+export interface LocationManager {
+  id: number;
+  location_id: number;
+  user_id: string;
+  email: string | null;
+  is_active: boolean;
+  assigned_by_owner_id: number;
+  assigned_at: string;
+  revoked_at: string | null;
+}
+
+/** Body for POST /locations/{id}/managers. Identifies the manager by email, not sub. */
+export interface AssignLocationManagerInput {
+  manager_email: string;
+}
+
+/** Response for GET /locations/{id}/managers — no page/page_size/total (bounded list). */
+export interface LocationManagersResponse {
+  results: LocationManager[];
+}

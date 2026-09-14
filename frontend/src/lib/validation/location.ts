@@ -66,3 +66,10 @@ export const updatePhotoSchema = z
   .refine((value) => value.display_order !== undefined || value.is_cover !== undefined, {
     message: "Provide at least one field to update",
   });
+
+/** Body for POST /locations/{id}/managers. */
+export const assignLocationManagerSchema = z.object({
+  manager_email: z.string().trim().email("Enter a valid email address"),
+});
+
+export type AssignLocationManagerFormValues = z.infer<typeof assignLocationManagerSchema>;
