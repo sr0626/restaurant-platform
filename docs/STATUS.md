@@ -8,9 +8,7 @@ that exist: the `dev` account itself, the Terraform state S3 bucket +
 DynamoDB lock table. `terraform apply` has never been run.
 
 ## Open PRs
-- #26 (`docs/PROJECT_PLAN.csv`) and #27 (claim flow + admin queue,
-  Architect-approved) — otherwise all merged through #25 (see DECISIONS.md
-  for what each did)
+- None — all merged through #28 (see DECISIONS.md for what each did)
 
 ## Architect (schema + contracts)
 - [x] 13 entities modeled, 2 migrations written (never run)
@@ -38,8 +36,11 @@ DynamoDB lock table. `terraform apply` has never been run.
 - [x] Homepage wired to the real `/search` API client with graceful
       empty/error states — no fabricated restaurant data
 - [x] Search results page and public restaurant detail page built (real
-      results/pagination, hours, gallery, unclaimed-listing CTA) —
-      login page still an unstyled placeholder
+      results/pagination, hours, gallery, unclaimed-listing CTA)
+- [x] Real Cognito login flow (email/password, in-memory token storage,
+      server-verified session cookie — never localStorage)
+- [x] Claim submission page + admin claims review queue (both Server
+      Actions independently re-verify session/role server-side per call)
 - [x] **`next build`/`next lint` fixed** — `next.config.ts` needed Next 15;
       converted to `next.config.mjs` (plain JS, works on the pinned Next
       14.2.18 — no version bump, per root `CLAUDE.md`'s settled Next 14
@@ -63,16 +64,24 @@ DynamoDB lock table. `terraform apply` has never been run.
 - [ ] Never run — no OIDC role deployed, no ECR repo, `DEV_DEPLOY_ROLE_ARN` secret not set
 
 ## QA / Tests
-- [x] 109 passing, 3 skipped (need real Postgres), 0 failing — includes new
-      owner-scoped-list security tests and cuisine-tags coverage
-- [ ] Playwright e2e suite not started — waiting on login/claim/owner-portal
-      pages to exist (per Architect's Phase 1 plan)
+- [x] 109 passing, 3 skipped (need real Postgres), 0 failing — verified
+      independently against merged `main`
+- [ ] Playwright e2e suite not started — login/claim pages now exist; owner
+      portal (below) is the last dependency before this can start
+
+## Process
+- [x] Draft-PR-until-Architect-approved safeguard live (merge button
+      disabled during review)
+- [x] `docs/CMD_LOG.md` write pattern fixed — orchestrator-only now,
+      feature branches no longer touch it (was causing a merge conflict on
+      nearly every PR)
+- Two flagged, non-blocking gaps: no presigned-upload endpoint for claim
+  documents; no list-all-pending-claims endpoint (admin queue is
+  lookup-by-id only for now)
 
 ## Blocking next steps (Architect's Phase 1 plan, in priority order)
-1. Login flow — real Cognito wiring (currently a bare placeholder)
-2. Claim flow UI + admin claims review queue (built together — one is
-   useless to demo without the other)
-3. Owner/manager location editor + owner dashboard (backend now unblocked —
-   `GET /restaurants` owner-scoped list landed)
-4. `terraform apply` (human-run) — nothing goes live until this happens;
-   not a blocker for any of 1–3, which are all buildable/testable locally
+1. Owner/manager location editor + owner dashboard — last major frontend
+   piece; backend unblocked since `GET /restaurants` owner-scoped list landed
+2. Playwright e2e suite, once the owner portal exists
+3. `terraform apply` (human-run) — nothing goes live until this happens;
+   not a blocker for #1 or #2, which are buildable/testable locally
