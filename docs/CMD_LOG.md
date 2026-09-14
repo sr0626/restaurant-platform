@@ -94,6 +94,14 @@ git push -u origin feature/restaurants-list-and-cuisine-tags   # claude  (Gap A/
 gh pr create --base main --head feature/restaurants-list-and-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
 git merge origin/main   # claude  (resolved CMD_LOG.md conflict — PR #22 merged mid-review, onto PR #21)
 git push origin HEAD:feature/search-and-restaurant-detail-pages   # claude  (onto PR #21)
+git push -u origin docs/status-phase1-progress   # claude
+gh pr create --base main --head docs/status-phase1-progress   # claude
+git push -u origin feature/login-cognito-signin   # claude  (real Cognito sign-in flow, no pre-approval needed, per relaxed push rule)
+gh pr create --draft --base main --head feature/login-cognito-signin   # claude  (opened as draft, per draft-until-Architect-approval rule)
+git push -u origin feature/phase1-claim-flow-ui   # claude  (claim submission page + admin claims review queue, no pre-approval needed, per relaxed push rule)
+gh pr create --base main --head feature/phase1-claim-flow-ui --draft   # claude  (opened as draft per new draft-until-approved rule)
+git push origin HEAD:feature/phase1-claim-flow-ui   # claude  (Architect fix: corrected @aws-amplify/auth pin, onto PR #27)
+gh pr ready 27   # claude  (Architect approved PR #27)
 git push -u origin docs/project-plan-csv   # claude  (PROJECT_PLAN.csv tracker, no pre-approval needed, per relaxed push rule)
 gh pr create --base main --head docs/project-plan-csv   # claude  (no pre-approval needed, per relaxed push rule)
 ```
