@@ -94,4 +94,6 @@ git push -u origin feature/restaurants-list-and-cuisine-tags   # claude  (Gap A/
 gh pr create --base main --head feature/restaurants-list-and-cuisine-tags   # claude  (no pre-approval needed, per relaxed push rule)
 git merge origin/main   # claude  (resolved CMD_LOG.md conflict — PR #22 merged mid-review, onto PR #21)
 git push origin HEAD:feature/search-and-restaurant-detail-pages   # claude  (onto PR #21)
+git push -u origin feature/login-cognito-signin   # claude  (real Cognito sign-in flow, no pre-approval needed, per relaxed push rule)
+gh pr create --draft --base main --head feature/login-cognito-signin   # claude  (opened as draft, per draft-until-Architect-approval rule)
 ```
