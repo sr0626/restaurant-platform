@@ -104,4 +104,16 @@ git push origin HEAD:feature/phase1-claim-flow-ui   # claude  (Architect fix: co
 gh pr ready 27   # claude  (Architect approved PR #27)
 git push -u origin docs/project-plan-csv   # claude  (PROJECT_PLAN.csv tracker, no pre-approval needed, per relaxed push rule)
 gh pr create --base main --head docs/project-plan-csv   # claude  (no pre-approval needed, per relaxed push rule)
+git merge origin/main   # claude  (resolved CMD_LOG.md+STATUS.md conflict, onto PR #24)
+git push origin docs/status-phase1-progress   # claude  (onto PR #24)
+git merge origin/main   # claude  (resolved CMD_LOG.md conflict, onto PR #26)
+git push origin HEAD:docs/project-plan-csv   # claude  (onto PR #26)
+git push -u origin docs/cmd-log-orchestrator-only   # claude  (new CMD_LOG write-pattern rule)
+gh pr create --base main --head docs/cmd-log-orchestrator-only   # claude
+git merge origin/main   # claude  (resolved DECISIONS.md conflict, onto PR #28)
+git push origin docs/cmd-log-orchestrator-only   # claude  (onto PR #28)
+git push -u origin docs/status-login-claim-merged   # claude
+gh pr create --base main --head docs/status-login-claim-merged   # claude
+git push -u origin feature/phase1-owner-portal-dashboard-location-editor   # claude  (Frontend Dev, owner dashboard + location editor, no pre-approval needed, per relaxed push rule)
+gh pr create --draft --base main --head feature/phase1-owner-portal-dashboard-location-editor   # claude  (opened as draft per draft-until-approved rule)
 ```
