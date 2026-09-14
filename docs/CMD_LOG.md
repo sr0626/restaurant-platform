@@ -96,4 +96,6 @@ git merge origin/main   # claude  (resolved CMD_LOG.md conflict — PR #22 merge
 git push origin HEAD:feature/search-and-restaurant-detail-pages   # claude  (onto PR #21)
 git push -u origin feature/phase1-claim-flow-ui   # claude  (claim submission page + admin claims review queue, no pre-approval needed, per relaxed push rule)
 gh pr create --base main --head feature/phase1-claim-flow-ui --draft   # claude  (opened as draft per new draft-until-approved rule)
+git push origin HEAD:feature/phase1-claim-flow-ui   # claude  (Architect fix: corrected @aws-amplify/auth pin, onto PR #27)
+gh pr ready 27   # claude  (Architect approved PR #27)
 ```
