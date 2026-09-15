@@ -7,6 +7,12 @@ for that). Phase 1 (MVP Core).
 that exist: the `dev` account itself, the Terraform state S3 bucket +
 DynamoDB lock table. `terraform apply` has never been run.
 
+**Reality check: there is no orchestrator running.** `orchestrator.py` was
+never implemented (see root `CLAUDE.md` "Coordination status" and
+`docs/PROJECT_PLAN.csv`'s Orchestrator row). The human is coordinating
+everything directly for now — a deliberate choice, not a bug; a real
+orchestrator is planned for later.
+
 **⚠ Brand name risk — "Swaad" (still live in code) needs to change before commercial launch.**
 Used throughout the frontend as a placeholder (it was never confirmed as a
 final name). Real conflict found: "Swad" is a decades-old, actively

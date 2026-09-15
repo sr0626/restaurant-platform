@@ -925,6 +925,26 @@ scripts, the GitHub OIDC trust role's required permissions). See
 *Rejected: folding CI/CD into Infra's scope (conflates "what resources exist"
 with "how code moves through them," and Infra's scope was already broad)*
 
+**Orchestrator was never implemented — human coordinates directly for now, real orchestrator deferred until it's actually the bottleneck**
+2026-09-15 | The decision below ("activated from Phase 1") was never carried
+out: `orchestrator.py` doesn't exist in the repo. Confirmed by checking the
+filesystem directly and cross-referenced against `docs/PROJECT_PLAN.csv`'s
+Orchestrator row, which independently flagged the same gap ("decided in
+principle, not implemented"). In practice, the human has been performing
+that role manually this whole time — deciding what to work on, driving
+direct Claude Code sessions, reviewing and merging PRs — not a lapse, just
+the reality nobody had corrected in the docs. User decision: stop
+describing the orchestrator as active/running in `CLAUDE.md`/`STATUS.md`
+(see "Coordination status" note added to root `CLAUDE.md`), and explicitly
+defer actually building it until manual coordination becomes the real
+bottleneck, rather than building it preemptively now.
+*Rejected: building a real orchestrator right now (no evidence yet that
+manual coordination is actually the bottleneck — would be scope-building
+ahead of a proven need, which this project's own guardrails warn against),
+continuing to describe it as active in the docs (actively misleading anyone
+— including a future Claude session — into assuming dispatch is automated
+when it isn't)*
+
 **Orchestrator (Option 3) activated from Phase 1, not deferred to Phase 3 — supersedes prior decision below**
 2026-09-12 | User decision: Phase 1 build work is dispatched through `orchestrator.py`
 from the start, not through manually coordinated Option 2 sessions. Approval-gate

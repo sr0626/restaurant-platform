@@ -41,11 +41,26 @@ Do not build Phase 2 features (payments, deals, analytics) during Phase 1.
 - Account creation itself is manual (human does it via AWS Organizations
   console or CLI) — no agent runs `organizations:CreateAccount`.
 
+## Coordination status (added 2026-09-15 — read before assuming "the orchestrator" is running)
+There is no `orchestrator.py` and no automated dispatch loop. It was
+documented as "active from Phase 1" but never implemented — confirmed by
+checking the repo directly (no file exists) and independently flagged in
+`docs/PROJECT_PLAN.csv`'s Orchestrator row. **The human is currently doing
+that coordination role directly** — deciding what to work on, starting
+sessions, reviewing PRs, merging. Anywhere below that says "the
+orchestrator" does something (batches `docs/CMD_LOG.md` entries, makes an
+ambiguous-call judgment, dispatches a subtask), read that as "the human,
+or whichever direct Claude Code session they're driving" until a real
+orchestrator exists. This is a deliberate, current decision, not an
+oversight to fix immediately — a real orchestrator is planned for later,
+specifically to relieve the human of manual coordination once that
+becomes the actual bottleneck, not before.
+
 ## Repository Structure
 ```
 /restaurant-app
   CLAUDE.md               ← this file (root, all agents read)
-  orchestrator.py          ← task decomposition + dispatch (active from Phase 1)
+  orchestrator.py          ← task decomposition + dispatch (PLANNED — not implemented yet, see "Coordination status" above)
   /architect               ← DB schema, migrations, API/data contracts
     CLAUDE.md             ← Architect agent instructions
   /backend                ← FastAPI app, Lambda handlers, Dockerfile
