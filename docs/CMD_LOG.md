@@ -116,4 +116,10 @@ git push -u origin docs/status-login-claim-merged   # claude
 gh pr create --base main --head docs/status-login-claim-merged   # claude
 git push -u origin feature/phase1-owner-portal-dashboard-location-editor   # claude  (Frontend Dev, owner dashboard + location editor, no pre-approval needed, per relaxed push rule)
 gh pr create --draft --base main --head feature/phase1-owner-portal-dashboard-location-editor   # claude  (opened as draft per draft-until-approved rule)
+git push -u origin fix/hero-copy-and-error-boundary   # claude  (error.tsx boundary + de-repetitive marketing copy)
+gh pr create --draft --base main --head fix/hero-copy-and-error-boundary   # claude
+gh pr ready 32   # claude  (Architect approved PR #32)
+git push -u origin test/phase1-playwright-e2e   # claude  (QA, Playwright e2e suite, no pre-approval needed, per relaxed push rule)
+gh pr create --draft --base main --head test/phase1-playwright-e2e   # claude  (opened as draft per draft-until-approved rule)
+gh pr ready 33   # claude  (Architect approved PR #33)
 ```

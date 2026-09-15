@@ -18,7 +18,7 @@ centralized in a handful of files, easy to swap), but pick and clear a real
 name before going live. Not a Phase 1 blocker, but flagged as urgent.
 
 ## Open PRs
-- None — all merged through #28 (see DECISIONS.md for what each did)
+- None — all merged through #33 (see DECISIONS.md for what each did)
 
 ## Architect (schema + contracts)
 - [x] 13 entities modeled, 2 migrations written (never run)
@@ -51,6 +51,15 @@ name before going live. Not a Phase 1 blocker, but flagged as urgent.
       server-verified session cookie — never localStorage)
 - [x] Claim submission page + admin claims review queue (both Server
       Actions independently re-verify session/role server-side per call)
+- [x] Owner dashboard + location editor (info, hours, photo gallery with
+      free/paid limits, manager assignment with the 2-manager cap) —
+      real presigned-S3 upload, 404/403 indistinguishable to unauthorized
+      callers
+- [x] Global error boundary (`app/error.tsx`) — found missing while manual
+      testing; a data-fetch failure was falling through to Next.js's raw
+      dev error screen instead of a graceful, branded state
+- [x] Marketing copy reworded off repetitive "Indian" phrasing — new
+      headline "Discover your taste," tagline "Discover Your Taste"
 - [x] **`next build`/`next lint` fixed** — `next.config.ts` needed Next 15;
       converted to `next.config.mjs` (plain JS, works on the pinned Next
       14.2.18 — no version bump, per root `CLAUDE.md`'s settled Next 14
@@ -74,10 +83,15 @@ name before going live. Not a Phase 1 blocker, but flagged as urgent.
 - [ ] Never run — no OIDC role deployed, no ECR repo, `DEV_DEPLOY_ROLE_ARN` secret not set
 
 ## QA / Tests
-- [x] 109 passing, 3 skipped (need real Postgres), 0 failing — verified
-      independently against merged `main`
-- [ ] Playwright e2e suite not started — login/claim pages now exist; owner
-      portal (below) is the last dependency before this can start
+- [x] pytest: 109 passing, 3 skipped (need real Postgres), 0 failing
+- [x] Playwright e2e: 17 passing, 12 explicitly skipped (`test.fixme` with
+      reasons, not silently disabled) — covers public page rendering,
+      mobile viewport (375px), unauthenticated-redirect, and the new error
+      boundary. Skipped: anything needing real Cognito/live backend data
+      (claim approval, owner/manager permission boundaries, geo search)
+- Real gap found and flagged (not fixed — out of QA's scope): zero
+  `data-testid` attributes anywhere in `frontend/src`; e2e suite falls back
+  to role/text/aria selectors. Fast-follow, not a blocker.
 
 ## Process
 - [x] Draft-PR-until-Architect-approved safeguard live (merge button
@@ -85,13 +99,18 @@ name before going live. Not a Phase 1 blocker, but flagged as urgent.
 - [x] `docs/CMD_LOG.md` write pattern fixed — orchestrator-only now,
       feature branches no longer touch it (was causing a merge conflict on
       nearly every PR)
-- Two flagged, non-blocking gaps: no presigned-upload endpoint for claim
+- Flagged, non-blocking gaps: no presigned-upload endpoint for claim
   documents; no list-all-pending-claims endpoint (admin queue is
-  lookup-by-id only for now)
+  lookup-by-id only); no `data-testid` convention (above); manager has no
+  way to discover assigned locations from the dashboard (owner-scoped
+  `GET /restaurants` has no manager path); `cover_photo_url` has no photo
+  id, so an already-set cover can't be explicitly deleted (only replaced)
 
-## Blocking next steps (Architect's Phase 1 plan, in priority order)
-1. Owner/manager location editor + owner dashboard — last major frontend
-   piece; backend unblocked since `GET /restaurants` owner-scoped list landed
-2. Playwright e2e suite, once the owner portal exists
+## Blocking next steps
+1. Adopt a `data-testid` convention (Frontend Dev) so the e2e suite's
+   selectors are more resilient — not urgent, but the fast-follow to do
+   before it's a pain to retrofit
+2. Pick and clear a real brand name (see the ⚠ above) before commercial
+   launch — not a Phase 1 dev blocker
 3. `terraform apply` (human-run) — nothing goes live until this happens;
-   not a blocker for #1 or #2, which are buildable/testable locally
+   Phase 1 is otherwise feature-complete and testable locally without it
