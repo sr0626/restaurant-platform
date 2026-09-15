@@ -720,6 +720,37 @@ Owner adds new location during free period — it gets the benefit too.
 
 ## Features & Product
 
+**Working brand name is "Swarasa" (not yet applied to code); logo direction "Fork-E" parked, not final**
+2026-09-15 | Followed up on the "Swaad" trademark conflict (see decision
+below) by brainstorming and vetting replacement names. "Zestro" was the
+initial front-runner but was ruled out: `zestro.app` and `zestro.co.za` are
+both live restaurant-tech products (an ordering platform and a POS system
+used in 20,000+ restaurants), a direct-category collision, not just a
+domain issue. Landed on **Swarasa** (Sanskrit-rooted: "juice/essence
+extracted from a fresh herb") — cleanest profile checked: no registered
+trademark found, no funded competitor or app-store product, only collision
+is one unrelated restaurant in Indonesia (different cuisine, different
+region). `swarasa.com` is taken; plan is a modifier domain
+(`findswarasa.com` or similar) while the brand name itself stays bare
+"Swarasa" everywhere it's user-facing (logo, app name, spoken use).
+Logo direction "Fork-E" (a reworked version of the earlier "Fork-Z" mark —
+fork tines + neck curve rotated 90°, with a knife and spoon on the two
+arms) was iterated extensively but user was not fully satisfied with the
+result and asked to stop iterating for now; current state is parked at the
+last version explicitly approved before further blade redraws. Full
+iteration history and the working mark live on the same design canvas as
+"Spice Market" (see visual-direction decision below):
+https://claude.ai/artifact/JAmSrrmd7k3NuDVMUKuT4U — not yet applied to any
+frontend code; `layout.tsx`, `page.tsx`, `TopBar.tsx`, `Hero.tsx`,
+`search/page.tsx` still say "Swaad". No production logo/favicon/social
+assets generated yet.
+*Rejected: Zestro (restaurant-tech trademark collision), Zaikara (multiple
+real Indian restaurants/cafes already using the exact name, in-market
+confusion risk), Swaruchi (an existing US home-style Indian food delivery
+business, near-identical to this product), continuing to iterate the logo
+mark further right now (user fatigue after many rounds — explicitly wants
+to revisit later rather than force a decision)*
+
 **"Swaad" is a placeholder brand name with a real trademark conflict — must change before commercial launch**
 2026-09-14 | While building homepage marketing copy, checked whether "Swaad"
 (the placeholder name used throughout the frontend since the design-canvas
