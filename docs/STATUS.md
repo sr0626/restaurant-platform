@@ -7,7 +7,7 @@ for that). Phase 1 (MVP Core).
 that exist: the `dev` account itself, the Terraform state S3 bucket +
 DynamoDB lock table. `terraform apply` has never been run.
 
-**⚠ Brand name risk — "Swaad" needs to change before commercial launch.**
+**⚠ Brand name risk — "Swaad" (still live in code) needs to change before commercial launch.**
 Used throughout the frontend as a placeholder (it was never confirmed as a
 final name). Real conflict found: "Swad" is a decades-old, actively
 operating Indian grocery brand (spices/snacks), and "Indian Swaad" was a
@@ -16,6 +16,10 @@ registered US trademark specifically for restaurant/hotel services
 decision 2026-09-13: keep "Swaad" as the working placeholder for now (it's
 centralized in a handful of files, easy to swap), but pick and clear a real
 name before going live. Not a Phase 1 blocker, but flagged as urgent.
+Working replacement name as of 2026-09-15: **Swarasa** (see DECISIONS.md
+"Features & Product" for the full naming/logo history) — not yet applied
+to any code. Logo direction ("Fork-E") is parked, not finalized; design
+canvas: https://claude.ai/artifact/JAmSrrmd7k3NuDVMUKuT4U
 
 ## Open PRs
 - None — all merged through #33 (see DECISIONS.md for what each did)
