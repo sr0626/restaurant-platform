@@ -77,6 +77,14 @@ whether action is needed — say plainly "PR #N needs your merge" or "nothing
 needed from you right now." This applies to every session driving this
 project, not just whichever one is active when this was written.
 
+**AWS/terraform commands default to the human running them** (added
+2026-09-15, user instruction — "always me by default, so give me the
+command as well every time... if needed I will ask you to run explicitly").
+When one of these commands is needed, hand over the exact, ready-to-run
+command rather than asking "want me to run it, or will you?" — the human
+decides whether to hand it back. This doesn't relax the per-command
+approval gate above; it only changes the default framing of who runs it.
+
 **The Architect-review-skip fast path is narrow — check the actual file
 list, not precedent** (added 2026-09-15, after two PRs, #37 and #44,
 incorrectly skipped Architect review by treating a `CLAUDE.md` edit as
