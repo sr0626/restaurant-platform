@@ -252,6 +252,38 @@ same-day fallback if the new version needs correcting)*
 
 ## Infrastructure & Hosting
 
+**Backend reads `DATABASE_URL` when set, else builds it from the `DB_SECRET_NAME` secret at cold start — closes a gap where the deployed Lambda had no way to get a DB connection string at all**
+2026-09-15 | Backend Dev decision, found during Architect review of PR #46:
+`backend/app/db/session.py` read `DATABASE_URL` directly from the
+environment and raised if unset, but `infra/modules/lambda/main.tf` (both
+the API Lambda and the deal-expiry Lambda) only ever sets `DB_SECRET_NAME`
+— the Secrets Manager secret *name* — never `DATABASE_URL`. The real
+deployed Lambda would have failed on its first DB-touching request with
+"DATABASE_URL is not set," which would have blocked the whole Phase 1
+backend the moment the deploy pipeline actually ran. `infra/CLAUDE.md`
+"Secrets Management" already documents the intended pattern ("ALL secrets
+stored in AWS Secrets Manager — never in environment variables directly.
+Lambda reads secrets at cold start via boto3 `get_secret_value`") — the gap
+was that nothing on the backend side actually implemented it yet. Fix:
+`_get_database_url()` now tries `DATABASE_URL` first (keeps local dev via
+gitignored `.env` unchanged), and falls back to fetching
+`aws_secretsmanager_secret_version.db` (`infra/modules/aurora/main.tf`) via
+boto3 `get_secret_value` and building a `postgresql+asyncpg://` URL from its
+`username`/`password`/`host`/`port`/`dbname` fields when `DATABASE_URL`
+isn't set but `DB_SECRET_NAME` is. The built URL is cached at module scope
+so the secret is fetched once per cold start, not once per request — same
+reasoning as every other cold-start-cached AWS client in this codebase
+(e.g. `app/services/s3_service.py`'s lazy client singleton). `boto3` was
+already a pinned backend dependency (`requirements.txt`), so no dependency
+change was needed. No infra/Terraform change required — this consumes the
+`DB_SECRET_NAME` variable Infra already provisions, it doesn't add a new one.
+*Rejected: also/instead setting `DATABASE_URL` directly as a Lambda env var
+in Terraform (exactly the environment-variable-secret anti-pattern
+`infra/CLAUDE.md` already rejects — would put the DB password in plaintext
+Lambda config instead of Secrets Manager); re-fetching the secret on every
+request (unnecessary Secrets Manager calls/cost and latency on a value that
+never changes within a warm execution environment).*
+
 **Terraform environment promotion: one shared codebase on `main`, explicit per-environment state keys and var-files (workspaces rejected), migration-before-image sequencing**
 2026-09-12 | Joint Architect + DevOps decision, prompted by the user's
 question "container is good for app code, what about infra IaC — you can't
