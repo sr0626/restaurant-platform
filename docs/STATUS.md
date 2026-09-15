@@ -18,7 +18,11 @@ a real trademark conflict — see DECISIONS.md) has been replaced throughout
 the codebase with **Swarasa**, including the repo/org rename (PR #36). The
 "Fork-E" logo mark (design canvas:
 https://claude.ai/artifact/JAmSrrmd7k3NuDVMUKuT4U) is wired into the
-homepage header and favicon, user-approved as final for now (PR #38).
+homepage header and favicon (PR #38) — this is the last version explicitly
+approved before iteration paused. Per DECISIONS.md ("Features & Product"),
+the direction itself is still **parked, not finalized**: the user wasn't
+fully satisfied and asked to stop iterating for now, with an explicit intent
+to revisit later, not a final sign-off.
 
 ## Open PRs
 - None — all merged through #33 (see DECISIONS.md for what each did)
