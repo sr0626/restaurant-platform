@@ -1,5 +1,5 @@
 {
-  "name": "restaurant-platform-e2e",
+  "name": "swarasa-e2e",
   "version": "0.1.0",
   "private": true,
   "description": "QA-owned Playwright e2e suite (see tests/CLAUDE.md). Separate from frontend/package.json — this is test tooling, not application code.",

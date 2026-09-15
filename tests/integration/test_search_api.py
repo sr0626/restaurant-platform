@@ -17,7 +17,7 @@ real AWS to stand one up) — these tests are guarded with
 `pytest.mark.skipif` on the `TEST_DATABASE_URL` env var and have NOT been
 executed or verified in this sandbox. To actually run/verify them:
 
-    export TEST_DATABASE_URL="postgresql+asyncpg://user:pass@localhost:5432/restaurant_platform_test"
+    export TEST_DATABASE_URL="postgresql+asyncpg://user:pass@localhost:5432/swarasa_test"
     # against a Postgres with the postgis extension installed (or Aurora's
     # own postgis-enabled instance), then:
     pytest tests/integration/test_search_api.py

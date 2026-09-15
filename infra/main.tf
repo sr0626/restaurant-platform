@@ -243,7 +243,7 @@ module "eventbridge" {
 
 # -------------------------------------------------------------------
 # Amplify — Next.js 14 (App Router / SSR) hosted frontend
-# GitHub repo: https://github.com/sr0626/restaurant-platform
+# GitHub repo: https://github.com/sr0626/swarasa
 # -------------------------------------------------------------------
 module "amplify" {
   source = "./modules/amplify"

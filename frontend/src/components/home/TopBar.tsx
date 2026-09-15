@@ -13,7 +13,7 @@ export default function TopBar() {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <div className="flex flex-col leading-tight">
           <span className="font-display text-xl font-bold text-brand-ink sm:text-2xl">
-            Swaad
+            Swarasa
           </span>
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-ink-subtle sm:text-xs">
             Discover Your Taste

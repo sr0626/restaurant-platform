@@ -16,7 +16,7 @@ variable "env" {
 variable "project" {
   description = "Project name used in resource names and tags"
   type        = string
-  default     = "restaurant-platform"
+  default     = "swarasa"
 }
 
 variable "phase" {

@@ -4,12 +4,12 @@
 
 aws_region  = "us-east-1"
 env         = "dev"
-project     = "restaurant-platform"
+project     = "swarasa"
 phase       = "phase1"
 
 db_username = "restaurantadmin"
 
-github_repo_url     = "https://github.com/sr0626/restaurant-platform"
+github_repo_url     = "https://github.com/sr0626/swarasa"
 github_access_token = "github_pat_REPLACE_ME"
 
 allowed_origins = [
