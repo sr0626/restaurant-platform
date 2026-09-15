@@ -169,4 +169,25 @@ gh pr create --draft --base main --head infra/fix-apply-blockers   # claude
 gh pr ready 40   # claude  (Architect approved PR #40)
 git push -u origin docs/status-infra-live   # claude
 gh pr create --base main --head docs/status-infra-live   # claude  (docs-only, opened ready per fast-path)
+git push -u origin docs/cmd-log-2026-09-15   # claude
+gh pr create --base main --head docs/cmd-log-2026-09-15   # claude  (docs-only, opened ready per fast-path)
+git push -u origin docs/project-plan-stale-frontend-qa-rows   # claude
+gh pr create --base main --head docs/project-plan-stale-frontend-qa-rows   # claude  (docs-only, opened ready per fast-path; PR #43)
+git push -u origin docs/orchestrator-mode-active   # claude
+gh pr create --base main --head docs/orchestrator-mode-active   # claude  (PR #44 — incorrectly treated as docs-only fast-path; see PR #48's correction)
+git push -u origin docs/project-plan-audit-round-2   # claude
+gh pr create --base main --head docs/project-plan-audit-round-2   # claude  (docs-only, opened ready per fast-path; PR #45)
+git push -u origin backend/dev-seed-script   # claude
+gh pr create --draft --base main --head backend/dev-seed-script   # claude
+gh pr ready 46   # claude  (Architect self-review approved PR #46)
+git push -u origin backend/fix-database-url-secrets-wiring   # claude
+gh pr create --draft --base main --head backend/fix-database-url-secrets-wiring   # claude
+gh pr ready 47   # claude  (Architect self-review approved PR #47)
+git push -u origin docs/claude-md-interaction-rules   # claude
+gh pr create --draft --base main --head docs/claude-md-interaction-rules   # claude
+gh pr ready 48   # claude  (Architect approved PR #48)
+aws cognito-idp admin-create-user --user-pool-id us-east-1_w2387tOf6 --message-action SUPPRESS --profile swarasa-dev --region us-east-1   # claude  (x6: 2 owner, 2 manager, 1 admin, 1 registered_user test users)
+aws cognito-idp admin-set-user-password --user-pool-id us-east-1_w2387tOf6 --password '***' --permanent --profile swarasa-dev --region us-east-1   # claude  (x6, one per test user)
+aws cognito-idp admin-add-user-to-group --user-pool-id us-east-1_w2387tOf6 --profile swarasa-dev --region us-east-1   # claude  (x6, one per role group)
+aws cognito-idp list-users --user-pool-id us-east-1_w2387tOf6 --profile swarasa-dev --region us-east-1   # claude  (verification — all 6 CONFIRMED)
 ```
