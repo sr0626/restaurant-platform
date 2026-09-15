@@ -1,0 +1,22 @@
+{
+  "_comment": "Template for backend/app/scripts/seed_dev_data.py's Cognito-identity mapping. Copy this file to seed_dev_identities.json (same directory, gitignored) and replace every REPLACE_ME_* value with the email of a REAL Cognito user you've already created in the swarasa-dev user pool, in the matching pool group. Do not edit or commit this .example file with real emails.",
+
+  "_cognito_prerequisite": "6 Cognito users total, in the ONE swarasa-dev user pool, each in exactly one of its 4 groups: 2 in 'owner', 2 in 'manager', 1 in 'admin', 1 in 'registered_user'. Creating them is a separate AWS CLI step (cognito-idp admin-create-user + admin-add-user-to-group per user) that a human runs with explicit per-command approval -- this script and the agent that wrote it do not run it. 'admin' has no local DB record (docs/DATA_MODEL.md identity note) so it's listed here for documentation completeness only -- seed_dev_data.py never looks it up.",
+
+  "owners": [
+    { "email": "REPLACE_ME_owner1@example.com", "full_name": "Dev Owner One" },
+    { "email": "REPLACE_ME_owner2@example.com", "full_name": "Dev Owner Two" }
+  ],
+
+  "managers": [
+    { "email": "REPLACE_ME_manager1@example.com" },
+    { "email": "REPLACE_ME_manager2@example.com" }
+  ],
+
+  "registered_user": { "email": "REPLACE_ME_registered_user1@example.com" },
+
+  "admin": {
+    "email": "REPLACE_ME_admin1@example.com",
+    "_note": "Not used by the script (no table to write) -- keep filled in anyway so this file stays the single checklist of every Cognito user the dev environment needs."
+  }
+}

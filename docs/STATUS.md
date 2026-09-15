@@ -46,6 +46,21 @@ to revisit later, not a final sign-off.
 - [x] `/claim` (submit/approve/reject), `/auth/me`
 - [x] `/cuisine-tags` (public read list)
 - [ ] Menu, deals, Stripe — Phase 2, not started (correctly)
+- [x] Dev/test seed script (`backend/app/scripts/seed_dev_data.py`, PR #46)
+      — small, idempotent owner/brand/location/manager/claim rows across 3
+      "(Dev Seed)"-labeled brands. Blocked on a human step it can't do
+      itself: needs 6 real Cognito users created first (2 owner, 2 manager,
+      1 admin, 1 registered_user — see the script's own header for the
+      exact `aws cognito-idp` commands), their emails filled into
+      `backend/app/scripts/seed_dev_identities.json` (gitignored, copied
+      from the `.example` template). Also can't be run from a laptop even
+      then — Aurora has no network path outside this Lambda's VPC (no NAT,
+      no bastion, no RDS Data API — checked against `infra/modules/
+      networking`/`infra/modules/aurora`), so `app/main.py`'s `handler` now
+      branches on a direct `aws lambda invoke` management-command payload
+      (`app/scripts/management.py`) as the way to actually run it once the
+      real backend image is deployed (see next bullet down and "Blocking
+      next steps" below).
 - Container image built (Dockerfile); ECR repo now exists, but only a
   placeholder `:bootstrap` image has been pushed (one-time, to unblock
   Lambda's first create) — the real backend image still needs its first
@@ -98,9 +113,11 @@ to revisit later, not a final sign-off.
   mid-Phase-1 (bumped to `15.18`); several `description` fields on security
   groups / the DB subnet group used an em-dash, which AWS rejects as
   non-ASCII (swapped for a plain hyphen)
-- **No seed data exists anywhere** — `restaurant_brand`/`restaurant_location`/
-  etc. tables are empty, no Cognito users in any of the 4 roles. Logging in
-  and testing as different user types needs this built first (not started)
+- **No seed data exists anywhere yet** — `restaurant_brand`/
+  `restaurant_location`/etc. tables are empty, no Cognito users in any of
+  the 4 roles. The seed script now exists (see Backend section above) but
+  hasn't run against real Aurora — still needs the 6 Cognito users created
+  and the real backend image deployed first
 - State key convention set (`envs/dev/terraform.tfstate`) — in use, no
   migration needed (fresh state store on a fresh account)
 
@@ -141,9 +158,17 @@ to revisit later, not a final sign-off.
 1. Adopt a `data-testid` convention (Frontend Dev) so the e2e suite's
    selectors are more resilient — not urgent, but the fast-follow to do
    before it's a pain to retrofit
-2. Write a seed script (Backend Dev — doesn't exist yet) and create one
-   Cognito test user per role, so the app is actually loggable-into and
-   testable end-to-end as owner/manager/admin/registered_user
+2. Seed script now exists (`backend/app/scripts/seed_dev_data.py`, PR #46)
+   — what's left is human/AWS steps it deliberately can't do itself:
+   (a) create 6 real Cognito users (2 owner, 2 manager, 1 admin,
+   1 registered_user — exact commands in the script's own header) and
+   fill their emails into `seed_dev_identities.json`; (b) get step 3 below
+   done so a real image is running; (c) run
+   `aws lambda invoke --function-name swarasa-api-dev --payload
+   '{"_management_command": "seed_dev_data"}' ...` (explicit per-command
+   approval, same as any AWS CLI use here) — this is the only run path
+   that actually reaches Aurora, since it has no network route outside
+   this Lambda's VPC (no NAT/bastion/RDS Data API)
 3. Trigger the first real `deploy-backend.yml` run (merge something under
    `backend/**`) so the Lambda serves the real FastAPI app instead of the
    `:bootstrap` placeholder

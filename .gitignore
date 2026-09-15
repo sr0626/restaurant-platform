@@ -1,6 +1,10 @@
 .env
 .env.*
 !.env.example
+
+# Real Cognito user emails for backend/app/scripts/seed_dev_data.py --
+# never commit; commit only the .example template next to it.
+backend/app/scripts/seed_dev_identities.json
 terraform.tfvars
 !*.tfvars.example
 .terraform/
