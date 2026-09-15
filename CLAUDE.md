@@ -69,6 +69,26 @@ for the human either — pick the next task from `docs/PROJECT_PLAN.csv`,
 dispatch it (directly or via a subagent), and report outcomes rather than
 asking permission to proceed to the next thing.
 
+**When reporting status, state explicitly what (if anything) needs the
+human right now** (added 2026-09-15, user instruction — "ask me explicitly
+if I need to do something, I don't need to keep checking on you"). Don't
+just link a PR or describe finished work and leave the human to infer
+whether action is needed — say plainly "PR #N needs your merge" or "nothing
+needed from you right now." This applies to every session driving this
+project, not just whichever one is active when this was written.
+
+**The Architect-review-skip fast path is narrow — check the actual file
+list, not precedent** (added 2026-09-15, after two PRs, #37 and #44,
+incorrectly skipped Architect review by treating a `CLAUDE.md` edit as
+"docs-only"). Only a PR whose changed files are BRD-only, `docs/STATUS.md`-
+only, or `docs/PROJECT_PLAN.csv`-only skips Architect review per "ALWAYS —
+Documentation" below. `CLAUDE.md` and `docs/DECISIONS.md` are NOT on that
+list, even though they're prose — they encode real process/behavioral
+decisions and get the same review as code. Before opening any PR as
+ready-for-review without Architect review, check its file list against
+this exact three-item list — don't reuse what an earlier PR did without
+re-verifying it was actually correct.
+
 ## Repository Structure
 ```
 /restaurant-app
