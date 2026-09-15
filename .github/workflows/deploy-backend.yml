@@ -1,23 +1,37 @@
 # ============================================================================
-# DRAFT — authored by the DevOps agent, 2026-09-12.
+# Authored by the DevOps agent, 2026-09-12; finalized 2026-09-15.
 # A HUMAN MUST REVIEW THIS FILE BEFORE IT IS EVER ENABLED/MERGED TO A BRANCH
 # THAT RUNS IT. See devops/CLAUDE.md guardrail: "NEVER build and deploy
 # without the human having reviewed the workflow file itself first."
 #
-# Purpose: prove out the build -> push -> deploy pipeline mechanics now,
-# against a DevOps-authored placeholder backend/Dockerfile (see that file's
-# header), before Backend Dev's real FastAPI app exists.
+# Status as of 2026-09-15 (see that task's report for full detail):
+# - backend/Dockerfile is Backend Dev's real FastAPI/Mangum image, not the
+#   original DevOps placeholder — confirmed by reading the file directly.
+# - Resource names below ("swarasa-api-dev" for both ECR_REPOSITORY and
+#   LAMBDA_FUNCTION_NAME) are CONFIRMED, not assumed: read directly against
+#   infra/modules/ecr and infra/modules/lambda, both of which name their
+#   resources "${var.project}-${var.service_name}-${var.env}" with
+#   project=swarasa, service_name=api (explicit in infra/main.tf's module
+#   calls), env=dev — matching exactly.
+# - infra/modules/iam/github_actions.tf's OIDC role (output
+#   github_actions_role_arn) is CONFIRMED scoped to exactly what this
+#   workflow needs: ECR push/pull + DescribeImages/DescribeImageScanFindings
+#   on this one repo's ARN, lambda:UpdateFunctionCode + GetFunction on this
+#   one function's ARN, ecr:GetAuthorizationToken on "*" (the one
+#   AWS-mandated exception — that API has no resource-level permissions).
+#   No AWS resources are provisioned yet, though (no `terraform apply` has
+#   run) — this role does not exist in the account until a human runs that
+#   apply and creates the GitHub secret below with the real output value.
 #
-# Resource names below follow the "${var.project}-api-${var.env}" convention
-# documented in infra/CLAUDE.md (ECR repo + Lambda function both use this
-# exact pattern, with var.project defaulting to "swarasa" and
-# var.env = "dev" per root CLAUDE.md "Environments"). Infra is provisioning
-# the real resources in a PARALLEL task and hasn't produced actual Terraform
-# output yet — these names are ASSUMED from the documented convention, not
-# confirmed against real output. They must match exactly (repo name, Lambda
-# function name, and the OIDC role ARN behind DEV_DEPLOY_ROLE_ARN) before
-# this workflow can run for the first time. See this task's report for the
-# full list of what's assumed vs. confirmed.
+# What still has to happen before this workflow can run for real (human
+# actions, out of DevOps's scope — see this task's report for the full
+# ordered checklist):
+#   1. Human runs `terraform apply` (never this agent).
+#   2. Human creates the GitHub secret DEV_DEPLOY_ROLE_ARN from
+#      `terraform output github_actions_role_arn`.
+#   3. Human does the one-time manual `:bootstrap` image push described in
+#      infra/main.tf's `module "lambda"` comment, before the first apply can
+#      even succeed (the Lambda resource requires an existing image).
 # ============================================================================
 
 name: Deploy Backend
@@ -33,9 +47,9 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: us-east-1                          # confirmed — see DECISIONS.md "Region"
-  ECR_REPOSITORY: swarasa-api-dev    # ASSUMED — see header comment above
-  LAMBDA_FUNCTION_NAME: swarasa-api-dev  # ASSUMED — see header comment above
+  AWS_REGION: us-east-1                  # confirmed — see DECISIONS.md "Region"
+  ECR_REPOSITORY: swarasa-api-dev        # confirmed against infra/modules/ecr — see header
+  LAMBDA_FUNCTION_NAME: swarasa-api-dev  # confirmed against infra/modules/lambda — see header
 
 jobs:
   build-and-deploy:
@@ -47,11 +61,14 @@ jobs:
       - name: Configure AWS credentials (OIDC role assumption, no static keys)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # ASSUMED secret name (matches the convention already documented in
-          # devops/CLAUDE.md's own draft example). The role itself doesn't
-          # exist yet — Infra provisions it as a parallel task. A human must
-          # create this GitHub secret with the real role ARN once that role
-          # is applied, before this workflow's first real run.
+          # Secret name confirmed against infra/modules/iam/outputs.tf's
+          # github_actions_role_arn output description, which names this
+          # exact secret. The role is defined in Terraform
+          # (infra/modules/iam/github_actions.tf) but not yet applied to a
+          # real account — a human must run `terraform apply` and then
+          # create this GitHub secret with the real output ARN before this
+          # workflow's first real run. See header comment for the full
+          # post-apply checklist.
           role-to-assume: ${{ secrets.DEV_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -89,8 +106,19 @@ jobs:
       # devops/CLAUDE.md ALWAYS: "scan images on push ... and stop the
       # pipeline on critical findings". Infra's ECR module sets
       # scan_on_push = true; this just waits for and enforces the result.
+      #
+      # Deliberately UNCONDITIONAL (not gated on check-image.outputs.exists,
+      # unlike the build/push step above). If this step were skipped
+      # whenever the image already exists, a run that pushed the image but
+      # then failed/was interrupted before this step completed would, on
+      # re-run, skip straight past the scan gate to deploying an image that
+      # was never confirmed clean — silently defeating "stop the pipeline on
+      # critical findings" via the exact idempotency path meant to make
+      # re-runs safe. Re-checking an already-scanned image is cheap: the
+      # waiter returns immediately once AWS's scan is complete, and
+      # describe-image-scan-findings just returns the already-computed
+      # result — so there's no cost to always enforcing it.
       - name: Wait for image scan, stop on critical findings
-        if: steps.check-image.outputs.exists == 'false'
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
