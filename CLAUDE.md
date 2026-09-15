@@ -41,20 +41,33 @@ Do not build Phase 2 features (payments, deals, analytics) during Phase 1.
 - Account creation itself is manual (human does it via AWS Organizations
   console or CLI) — no agent runs `organizations:CreateAccount`.
 
-## Coordination status (added 2026-09-15 — read before assuming "the orchestrator" is running)
-There is no `orchestrator.py` and no automated dispatch loop. It was
-documented as "active from Phase 1" but never implemented — confirmed by
-checking the repo directly (no file exists) and independently flagged in
-`docs/PROJECT_PLAN.csv`'s Orchestrator row. **The human is currently doing
-that coordination role directly** — deciding what to work on, starting
-sessions, reviewing PRs, merging. Anywhere below that says "the
+## Coordination status (added 2026-09-15, updated 2026-09-15 — read before assuming "the orchestrator" is running)
+There is still no `orchestrator.py` file and no automated dispatch loop —
+that part hasn't changed. What changed the same day: **the human asked the
+direct Claude Code session to actively fill that coordination role**,
+proactively — decomposing and dispatching work against
+`docs/PROJECT_PLAN.csv` without waiting to be asked "what's next" each
+time, the way a real orchestrator would. Anywhere below that says "the
 orchestrator" does something (batches `docs/CMD_LOG.md` entries, makes an
-ambiguous-call judgment, dispatches a subtask), read that as "the human,
-or whichever direct Claude Code session they're driving" until a real
-orchestrator exists. This is a deliberate, current decision, not an
-oversight to fix immediately — a real orchestrator is planned for later,
-specifically to relieve the human of manual coordination once that
-becomes the actual bottleneck, not before.
+ambiguous-call judgment, dispatches a subtask), read that as "the direct
+Claude Code session, acting in that capacity" until a real standalone
+`orchestrator.py` exists.
+
+This does NOT relax any hard gate elsewhere in this file. The human still
+must be stopped for, every time, no standing approval:
+- Any AWS CLI/SDK/Terraform command that touches real AWS (see "NEVER —
+  Session Control")
+- Merging any PR (see "NEVER — Session Control" — absolute, no agent ever
+  merges)
+- Any command the human said they'd rather run themselves on their own
+  machine (local dev server, `docker`, etc.)
+- Any ambiguous product/design decision per "Ask Human When" below
+
+Feature-branch push + PR creation still doesn't need per-action approval
+(unchanged from 2026-09-13). Routine status questions do not need to wait
+for the human either — pick the next task from `docs/PROJECT_PLAN.csv`,
+dispatch it (directly or via a subagent), and report outcomes rather than
+asking permission to proceed to the next thing.
 
 ## Repository Structure
 ```
