@@ -9,6 +9,7 @@
 // literal name — only the `font-display` / `font-body` utility classes.
 import type { Metadata } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -26,6 +27,10 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
+  // Required for relative `alternates.canonical` paths (e.g.
+  // "/restaurant/{slug}" in app/restaurant/[slug]/page.tsx) to resolve to
+  // real absolute URLs (frontend/CLAUDE.md "Canonical URLs on all pages").
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Swarasa — Discover Your Taste, Dallas-Fort Worth",
     template: "%s | Swarasa",
