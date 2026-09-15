@@ -28,6 +28,13 @@ RUN pip install --no-cache-dir -r "${LAMBDA_TASK_ROOT}/requirements.txt"
 # The real application code.
 COPY app/ ${LAMBDA_TASK_ROOT}/app/
 
+# Migration files, needed at runtime by app/scripts/run_migrations.py (a
+# management command the human invokes via `aws lambda invoke` to apply
+# already-reviewed migrations to the real database -- see that file's
+# module docstring). Not previously copied because nothing in the image
+# needed them until this command existed.
+COPY migrations/ ${LAMBDA_TASK_ROOT}/migrations/
+
 # package_type = "Image" Lambda functions have no separate "handler" config
 # — CMD here *is* the handler, in "<module>.<callable>" form (see
 # infra/CLAUDE.md "Lambda + API Gateway"). Matches app/main.py's

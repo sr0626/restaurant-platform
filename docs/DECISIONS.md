@@ -252,6 +252,36 @@ same-day fallback if the new version needs correcting)*
 
 ## Infrastructure & Hosting
 
+**Migrations applied to the real database via a Lambda management command (`alembic_upgrade`), human-invoked via `aws lambda invoke` — not run by any agent, ever**
+2026-09-15 | Found while investigating why the first fully-successful
+deploy 500'd on every DB-touching endpoint: `relation "restaurant_location"
+does not exist` — Alembic migrations have never been run against the real
+Aurora database (expected; `terraform apply` only creates the empty
+cluster, per `docs/STATUS.md`). Same network-reachability problem as the
+dev-seed script (PR #46): Aurora sits in private subnets with no NAT
+Gateway, no bastion, no RDS Data API, so nothing outside the Lambda's own
+VPC route can reach it — a migration runner has to execute inside a Lambda
+invocation, same as the seed script. Added `app/scripts/run_migrations.py`
+(thin wrapper around `alembic.command.upgrade`, reusing
+`app.db.session._get_database_url()` for the connection string so it can
+never drift from what the app itself connects with) and registered it as
+the `alembic_upgrade` management command (`app/scripts/management.py`,
+same dispatch table `seed_dev_data` already uses). `backend/Dockerfile` now
+also copies `migrations/` into the image — it previously only copied
+`app/`, so even with the runner present, the image had no migration files
+to apply.
+Root CLAUDE.md's "NEVER run Alembic migrations — generate migration files
+only" is unchanged and still absolute for every agent — this only builds
+the mechanism; running it is the human's own explicit, per-command-approved
+`aws lambda invoke` call, the identical trust boundary as `terraform apply`
+or any other direct AWS action in this repo.
+*Rejected: a bastion host or RDS Data API just to run migrations
+(meaningful new cost/attack-surface for something the Lambda-invoke path
+already solves); an agent running migrations directly from a local machine
+(would require VPN/bastion access this project doesn't have, and would
+violate the "NEVER run Alembic migrations" guardrail regardless of network
+path).*
+
 **Backend reads `DATABASE_URL` when set, else builds it from the `DB_SECRET_NAME` secret at cold start — closes a gap where the deployed Lambda had no way to get a DB connection string at all**
 2026-09-15 | Backend Dev decision, found during Architect review of PR #46:
 `backend/app/db/session.py` read `DATABASE_URL` directly from the

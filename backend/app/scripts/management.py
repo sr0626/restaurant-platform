@@ -51,6 +51,15 @@ def _run_seed_dev_data(event: dict) -> dict:
     return {"ok": True, "command": "seed_dev_data", "counts": counts}
 
 
+@_command("alembic_upgrade")
+def _run_alembic_upgrade(event: dict) -> dict:
+    from app.scripts.run_migrations import run_upgrade
+
+    revision = event.get("revision", "head")
+    result = run_upgrade(revision)
+    return {"ok": True, "command": "alembic_upgrade", **result}
+
+
 def run_management_command(event: dict, context: Any) -> dict:
     """Entry point called from `app.main.handler`. Never raises -- every
     outcome (including an unknown command or an unhandled exception from
