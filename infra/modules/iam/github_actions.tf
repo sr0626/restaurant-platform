@@ -158,6 +158,11 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           # Architect's PR review, missing in the original policy.
           "ecr:DescribeImages",
           "ecr:DescribeImageScanFindings",
+          # Added 2026-09-15: scan_on_push doesn't reliably auto-trigger in
+          # this account (confirmed live — images sat at scan status null
+          # for hours), so the workflow now explicitly calls start-image-scan
+          # after push rather than relying on it firing automatically.
+          "ecr:StartImageScan",
         ]
         Resource = var.ecr_repository_arn
       },
