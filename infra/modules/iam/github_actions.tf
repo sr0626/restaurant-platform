@@ -174,6 +174,14 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           # Added: the deploy workflow polls this after update-function-code
           # to wait for the new image to become Active — same review finding.
           "lambda:GetFunction",
+          # Added 2026-09-15: confirmed live -- `aws lambda wait
+          # function-updated` (the workflow's final step) actually polls via
+          # GetFunctionConfiguration, a distinct action from GetFunction.
+          # Found because the real deploy succeeded (confirmed via
+          # `aws lambda get-function`: image updated, State=Active,
+          # LastUpdateStatus=Successful) but the pipeline's own confirmation
+          # step failed with AccessDeniedException on this specific action.
+          "lambda:GetFunctionConfiguration",
         ]
         Resource = local.api_lambda_arn
       }
