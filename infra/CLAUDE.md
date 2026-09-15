@@ -47,7 +47,7 @@ variable "env" {
 variable "project" {
   description = "Project name for tagging"
   type        = string
-  default     = "restaurant-platform"
+  default     = "swarasa"
 }
 
 # Common tags on every resource
@@ -330,11 +330,11 @@ Every Lambda gets its own IAM role with only the permissions it needs:
   member account under the same management/payer account).
 - `var.env = "dev"` for everything right now. Don't hardcode `"dev"` anywhere
   a future env value needs to slot in — always go through `var.env`.
-- Terraform targets the `dev` account via `AWS_PROFILE=restaurant-platform-dev`
+- Terraform targets the `dev` account via `AWS_PROFILE=swarasa-dev`
   (IAM Identity Center / SSO, no static keys — see `infra/ACCOUNTS.md`), set
   by the human before running any `terraform` or `aws` command. You never see
   or handle the account's credentials directly — sessions expire and the
-  human re-runs `aws sso login --profile restaurant-platform-dev` as needed.
+  human re-runs `aws sso login --profile swarasa-dev` as needed.
 
 ### Environment promotion convention (added 2026-09-12 — see DECISIONS.md
 ### "Terraform environment promotion")
@@ -346,7 +346,7 @@ but name things this way from the start so adding the next environment is a
 config change, not a rename/migration.
 
 - **State key:** `envs/<env>/terraform.tfstate` in the shared state bucket
-  (`restaurant-platform-tfstate-sr0626`), e.g. `envs/dev/terraform.tfstate`,
+  (`swarasa-tfstate-sr0626`), e.g. `envs/dev/terraform.tfstate`,
   `envs/test/terraform.tfstate`, `envs/prod/terraform.tfstate`. `backend.tf`
   now declares `envs/dev/terraform.tfstate` (updated 2026-09-12, replacing
   the earlier placeholder `phase1/terraform.tfstate`) — but that's only the

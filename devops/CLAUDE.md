@@ -66,7 +66,7 @@ jobs:
           docker push $ECR_REPO:${{ github.sha }}
       - run: |
           aws lambda update-function-code \
-            --function-name restaurant-platform-api-dev \
+            --function-name swarasa-api-dev \
             --image-uri $ECR_REPO:${{ github.sha }}
 ```
 Note: this workflow runs unattended in CI once the human has reviewed and

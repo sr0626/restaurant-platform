@@ -110,7 +110,7 @@ test.describe("Restaurant detail page", () => {
 
     // TopBar still renders inside the error boundary (error.tsx renders it
     // explicitly) — confirms this is the branded boundary, not a raw crash.
-    await expect(page.getByText("Swaad")).toBeVisible();
+    await expect(page.getByText("Swarasa")).toBeVisible();
   });
 
   // schema.org JSON-LD (frontend/src/app/restaurant/[slug]/page.tsx's

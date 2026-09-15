@@ -10,7 +10,7 @@
 #
 # Resource names below follow the "${var.project}-api-${var.env}" convention
 # documented in infra/CLAUDE.md (ECR repo + Lambda function both use this
-# exact pattern, with var.project defaulting to "restaurant-platform" and
+# exact pattern, with var.project defaulting to "swarasa" and
 # var.env = "dev" per root CLAUDE.md "Environments"). Infra is provisioning
 # the real resources in a PARALLEL task and hasn't produced actual Terraform
 # output yet — these names are ASSUMED from the documented convention, not
@@ -34,8 +34,8 @@ permissions:
 
 env:
   AWS_REGION: us-east-1                          # confirmed — see DECISIONS.md "Region"
-  ECR_REPOSITORY: restaurant-platform-api-dev    # ASSUMED — see header comment above
-  LAMBDA_FUNCTION_NAME: restaurant-platform-api-dev  # ASSUMED — see header comment above
+  ECR_REPOSITORY: swarasa-api-dev    # ASSUMED — see header comment above
+  LAMBDA_FUNCTION_NAME: swarasa-api-dev  # ASSUMED — see header comment above
 
 jobs:
   build-and-deploy:

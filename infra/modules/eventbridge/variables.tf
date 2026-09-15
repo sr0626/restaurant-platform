@@ -6,7 +6,7 @@ variable "env" {
 variable "project" {
   description = "Project name for tagging"
   type        = string
-  default     = "restaurant-platform"
+  default     = "swarasa"
 }
 
 variable "phase" {

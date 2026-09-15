@@ -27,8 +27,8 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   title: {
-    default: "Swaad — Discover Your Taste, Dallas-Fort Worth",
-    template: "%s | Swaad",
+    default: "Swarasa — Discover Your Taste, Dallas-Fort Worth",
+    template: "%s | Swarasa",
   },
   description:
     "Discover your taste across Dallas-Fort Worth — verified restaurants, filtered by regional cuisine and dietary needs, with deals from registered restaurants.",

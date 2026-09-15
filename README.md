@@ -30,19 +30,19 @@ AWS credentials configured: `aws configure` then `aws sts get-caller-identity`
 #    Organizations -> Accounts -> Add an AWS account -> name it, give it an
 #    email not used by any other AWS account. See docs/DECISIONS.md
 #    "AWS account structure". Configure a local AWS CLI profile for it
-#    (e.g. `aws configure --profile restaurant-platform-dev`) before step 2.
+#    (e.g. `aws configure --profile swarasa-dev`) before step 2.
 
 # 1. Clone
-git clone https://github.com/YOUR_ORG/restaurant-platform.git
-cd restaurant-platform
+git clone https://github.com/YOUR_ORG/swarasa.git
+cd swarasa
 
 # 2. Create Terraform remote state (one-time, manual, in the dev account)
-aws s3 mb s3://restaurant-platform-tfstate-INITIALS --region us-east-1
+aws s3 mb s3://swarasa-tfstate-INITIALS --region us-east-1
 aws s3api put-bucket-versioning \
-  --bucket restaurant-platform-tfstate-INITIALS \
+  --bucket swarasa-tfstate-INITIALS \
   --versioning-configuration Status=Enabled
 aws dynamodb create-table \
-  --table-name restaurant-platform-tfstate-lock \
+  --table-name swarasa-tfstate-lock \
   --attribute-definitions AttributeName=LockID,AttributeType=S \
   --key-schema AttributeName=LockID,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
@@ -58,7 +58,7 @@ cp infra/terraform.tfvars.example infra/terraform.tfvars
 ## Repository Structure
 
 ```
-restaurant-platform/
+swarasa/
   CLAUDE.md                   ← shared agent context (all agents read this)
   README.md                   ← this file
   .gitignore
@@ -148,22 +148,22 @@ task queue:
 
 ```bash
 # Architect work (schema, migrations, API/data contracts)
-cd restaurant-platform/architect && claude
+cd swarasa/architect && claude
 
 # Infra work
-cd restaurant-platform/infra && claude
+cd swarasa/infra && claude
 
 # Backend API work
-cd restaurant-platform/backend && claude
+cd swarasa/backend && claude
 
 # DevOps work (CI/CD, container build/push/deploy)
-cd restaurant-platform/devops && claude
+cd swarasa/devops && claude
 
 # Frontend work
-cd restaurant-platform/frontend && claude
+cd swarasa/frontend && claude
 
 # Testing
-cd restaurant-platform/tests && claude
+cd swarasa/tests && claude
 ```
 
 Claude Code reads `CLAUDE.md` automatically on session start.
@@ -278,8 +278,8 @@ npm run dev
 
 # Build the backend container image locally (same Dockerfile Lambda runs)
 cd backend
-docker build -t restaurant-platform-api:local .
-docker run -p 8000:8000 --env-file .env restaurant-platform-api:local
+docker build -t swarasa-api:local .
+docker run -p 8000:8000 --env-file .env swarasa-api:local
 
 # Terraform plan (never apply in this repo — human runs apply)
 cd infra
