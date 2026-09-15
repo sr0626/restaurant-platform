@@ -57,7 +57,7 @@ async def update_location(
     return await location_service.update_location(db, location_id, body, current_user)
 
 
-@router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 async def delete_location(
     location_id: int,
     db: AsyncSession = Depends(get_db),
@@ -109,7 +109,7 @@ async def update_location_photo(
     return await location_service.update_location_photo(db, location_id, photo_id, body)
 
 
-@router.delete("/{location_id}/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{location_id}/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 async def delete_location_photo(
     location_id: int,
     photo_id: int,
@@ -156,7 +156,9 @@ async def list_location_managers(
 
 
 @router.delete(
-    "/{location_id}/managers/{manager_id}", status_code=status.HTTP_204_NO_CONTENT
+    "/{location_id}/managers/{manager_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
 )
 async def remove_location_manager(
     location_id: int,
