@@ -13,19 +13,16 @@ never implemented (see root `CLAUDE.md` "Coordination status" and
 everything directly for now — a deliberate choice, not a bug; a real
 orchestrator is planned for later.
 
-**⚠ Brand name risk — "Swaad" (still live in code) needs to change before commercial launch.**
-Used throughout the frontend as a placeholder (it was never confirmed as a
-final name). Real conflict found: "Swad" is a decades-old, actively
-operating Indian grocery brand (spices/snacks), and "Indian Swaad" was a
-registered US trademark specifically for restaurant/hotel services
-(cancelled 2020, but shows direct precedent in this exact category). User
-decision 2026-09-13: keep "Swaad" as the working placeholder for now (it's
-centralized in a handful of files, easy to swap), but pick and clear a real
-name before going live. Not a Phase 1 blocker, but flagged as urgent.
-Working replacement name as of 2026-09-15: **Swarasa** (see DECISIONS.md
-"Features & Product" for the full naming/logo history) — not yet applied
-to any code. Logo direction ("Fork-E") is parked, not finalized; design
-canvas: https://claude.ai/artifact/JAmSrrmd7k3NuDVMUKuT4U
+**Brand name: resolved.** "Swaad" (the old placeholder, flagged 2026-09-13 for
+a real trademark conflict — see DECISIONS.md) has been replaced throughout
+the codebase with **Swarasa**, including the repo/org rename (PR #36). The
+"Fork-E" logo mark (design canvas:
+https://claude.ai/artifact/JAmSrrmd7k3NuDVMUKuT4U) is wired into the
+homepage header and favicon (PR #38) — this is the last version explicitly
+approved before iteration paused. Per DECISIONS.md ("Features & Product"),
+the direction itself is still **parked, not finalized**: the user wasn't
+fully satisfied and asked to stop iterating for now, with an explicit intent
+to revisit later, not a final sign-off.
 
 ## Open PRs
 - None — all merged through #33 (see DECISIONS.md for what each did)
@@ -120,7 +117,5 @@ canvas: https://claude.ai/artifact/JAmSrrmd7k3NuDVMUKuT4U
 1. Adopt a `data-testid` convention (Frontend Dev) so the e2e suite's
    selectors are more resilient — not urgent, but the fast-follow to do
    before it's a pain to retrofit
-2. Pick and clear a real brand name (see the ⚠ above) before commercial
-   launch — not a Phase 1 dev blocker
-3. `terraform apply` (human-run) — nothing goes live until this happens;
+2. `terraform apply` (human-run) — nothing goes live until this happens;
    Phase 1 is otherwise feature-complete and testable locally without it
