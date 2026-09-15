@@ -71,6 +71,16 @@ variable "github_repo_url" {
   type        = string
 }
 
+variable "github_owner_id" {
+  description = "Numeric GitHub user/org id of the repo owner (e.g. `gh api repos/<org>/<repo> --jq .owner.id`) — GitHub's OIDC token sub claim embeds this alongside the owner login (\"repo:<login>@<id>/...\") for rename/transfer-proof trust policies; confirmed via CloudTrail after the deploy pipeline's first real run failed with the plain-name sub claim this repo was renamed away from"
+  type        = string
+}
+
+variable "github_repo_id" {
+  description = "Numeric GitHub repo id (e.g. `gh api repos/<org>/<repo> --jq .id`) — same reasoning as github_owner_id, the other half of the OIDC sub claim's immutable identifier pair"
+  type        = string
+}
+
 variable "cognito_user_pool_arn" {
   description = "Cognito User Pool ARN (module.cognito) — scopes the API Lambda's cognito-idp:ListUsers permission to this single pool, used to resolve a manager's email to their Cognito sub when assigning location managers"
   type        = string

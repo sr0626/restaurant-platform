@@ -161,6 +161,8 @@ module "iam" {
   stripe_webhook_secret_arn = aws_secretsmanager_secret.stripe_webhook_secret.arn
   ecr_repository_arn        = module.ecr.repository_arn
   github_repo_url           = var.github_repo_url
+  github_owner_id           = var.github_owner_id
+  github_repo_id            = var.github_repo_id
   cognito_user_pool_arn     = module.cognito.user_pool_arn
 }
 

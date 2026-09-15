@@ -36,6 +36,16 @@ variable "github_repo_url" {
   type        = string
 }
 
+variable "github_owner_id" {
+  description = "Numeric GitHub id of the repo owner (`gh api repos/<org>/<repo> --jq .owner.id`) — the GitHub Actions OIDC trust policy's sub claim embeds this; see infra/modules/iam/github_actions.tf for why"
+  type        = string
+}
+
+variable "github_repo_id" {
+  description = "Numeric GitHub repo id (`gh api repos/<org>/<repo> --jq .id`) — same reasoning as github_owner_id"
+  type        = string
+}
+
 variable "github_access_token" {
   description = "GitHub personal access token for Amplify — use TF_VAR_github_access_token env var"
   type        = string

@@ -10,6 +10,11 @@ phase       = "phase1"
 db_username = "restaurantadmin"
 
 github_repo_url     = "https://github.com/sr0626/swarasa"
+# Numeric ids, not secrets — safe to commit, but this file is .example so
+# they're left as placeholders. Look up with:
+#   gh api repos/<org>/<repo> --jq '{owner_id: .owner.id, repo_id: .id}'
+github_owner_id     = "REPLACE_WITH_NUMERIC_OWNER_ID"
+github_repo_id      = "REPLACE_WITH_NUMERIC_REPO_ID"
 github_access_token = "github_pat_REPLACE_ME"
 
 allowed_origins = [

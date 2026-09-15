@@ -31,7 +31,31 @@ locals {
   # value already used by the amplify module for its own repo reference.
   # Reused here (rather than adding a second variable for the same repo) to
   # derive the "<org>/<repo>" slug the OIDC sub claim needs.
+  #
+  # NOT used directly in the trust condition below anymore — see the
+  # github_repo_slug_immutable local for why (GitHub's actual sub claim
+  # format embeds numeric ids, confirmed via CloudTrail after this repo's
+  # rename broke the plain-name version of this condition).
   github_repo_slug = trimprefix(var.github_repo_url, "https://github.com/")
+
+  # GitHub's OIDC sub claim is NOT "repo:<org>/<repo>:ref:..." — it's
+  # "repo:<org>@<owner_id>/<repo>@<repo_id>:ref:...", embedding the
+  # immutable numeric owner/repo ids alongside the (mutable, rename-able)
+  # login/name. Confirmed empirically via CloudTrail's
+  # AssumeRoleWithWebIdentity error event after this repo was renamed
+  # restaurant-platform -> swarasa and the deploy pipeline's first real run
+  # failed with AccessDenied: the trust condition below used to be
+  # "repo:${local.github_repo_slug}:ref:refs/heads/main" (plain names only,
+  # matching AWS's own official example in their GitHub OIDC docs — this
+  # wasn't a made-up format, GitHub apparently now sends the id-augmented
+  # form regardless), which never matched the token GitHub actually issued.
+  # Using the immutable ids here (rather than just fixing the name to
+  # "swarasa") also means this condition survives a FUTURE rename without
+  # needing another Terraform change — the whole point of GitHub adding the
+  # ids to the claim in the first place.
+  github_repo_slug_immutable = "${local.github_repo_slug_owner}@${var.github_owner_id}/${local.github_repo_slug_name}@${var.github_repo_id}"
+  github_repo_slug_owner      = split("/", local.github_repo_slug)[0]
+  github_repo_slug_name       = split("/", local.github_repo_slug)[1]
 
   # Constructed from the known naming convention (same technique this module
   # already uses for the CloudWatch log group ARNs above) instead of taking
@@ -80,7 +104,7 @@ data "aws_iam_policy_document" "github_actions_trust" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${local.github_repo_slug}:ref:refs/heads/main"]
+      values   = ["repo:${local.github_repo_slug_immutable}:ref:refs/heads/main"]
     }
   }
 }
