@@ -18,7 +18,7 @@ resource "random_password" "db" {
 # -------------------------------------------------------------------
 resource "aws_db_subnet_group" "main" {
   name        = "${var.project}-db-subnet-${var.env}"
-  description = "Aurora private subnets — no public access"
+  description = "Aurora private subnets - no public access"
   subnet_ids  = var.subnet_ids
 
   tags = local.common_tags
@@ -30,7 +30,7 @@ resource "aws_db_subnet_group" "main" {
 # -------------------------------------------------------------------
 resource "aws_security_group" "rds" {
   name        = "${var.project}-rds-sg-${var.env}"
-  description = "Aurora — inbound PostgreSQL from Lambda SG only"
+  description = "Aurora - inbound PostgreSQL from Lambda SG only"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -53,7 +53,7 @@ resource "aws_rds_cluster" "main" {
   cluster_identifier     = "${var.project}-${var.env}"
   engine                 = "aurora-postgresql"
   engine_mode            = "provisioned"
-  engine_version         = "15.4"
+  engine_version         = "15.18"
   database_name          = "restaurantdb"
   master_username        = var.db_username
   master_password        = random_password.db.result

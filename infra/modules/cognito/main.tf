@@ -69,25 +69,25 @@ resource "aws_cognito_user_pool" "main" {
 resource "aws_cognito_user_group" "owner" {
   name         = "owner"
   user_pool_id = aws_cognito_user_pool.main.id
-  description  = "Restaurant owners — full access to their brands and locations"
+  description  = "Restaurant owners - full access to their brands and locations"
 }
 
 resource "aws_cognito_user_group" "manager" {
   name         = "manager"
   user_pool_id = aws_cognito_user_pool.main.id
-  description  = "Location managers — access to explicitly assigned locations only"
+  description  = "Location managers - access to explicitly assigned locations only"
 }
 
 resource "aws_cognito_user_group" "admin" {
   name         = "admin"
   user_pool_id = aws_cognito_user_pool.main.id
-  description  = "Platform admins — full access"
+  description  = "Platform admins - full access"
 }
 
 resource "aws_cognito_user_group" "registered_user" {
   name         = "registered_user"
   user_pool_id = aws_cognito_user_pool.main.id
-  description  = "Registered consumers — read-only, follow, deals"
+  description  = "Registered consumers - read-only, follow, deals"
 }
 
 # -------------------------------------------------------------------

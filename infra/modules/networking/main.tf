@@ -54,7 +54,7 @@ resource "aws_route_table_association" "private" {
 # -------------------------------------------------------------------
 resource "aws_security_group" "lambda" {
   name        = "${var.project}-lambda-sg-${var.env}"
-  description = "Lambda — egress to Aurora and VPC endpoints only; no inbound"
+  description = "Lambda - egress to Aurora and VPC endpoints only; no inbound"
   vpc_id      = aws_vpc.main.id
 
   egress {
@@ -82,7 +82,7 @@ resource "aws_security_group" "lambda" {
 # -------------------------------------------------------------------
 resource "aws_security_group" "vpc_endpoints" {
   name        = "${var.project}-vpce-sg-${var.env}"
-  description = "VPC interface endpoints — inbound HTTPS from Lambda only"
+  description = "VPC interface endpoints - inbound HTTPS from Lambda only"
   vpc_id      = aws_vpc.main.id
 
   ingress {
