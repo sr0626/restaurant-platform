@@ -3,9 +3,12 @@
 Live snapshot — updated as work lands, not a historical log (see DECISIONS.md
 for that). Phase 1 (MVP Core).
 
-**Reality check: nothing is deployed to AWS yet.** Only real AWS resources
-that exist: the `dev` account itself, the Terraform state S3 bucket +
-DynamoDB lock table. `terraform apply` has never been run.
+**Real infra is live in AWS (as of 2026-09-15).** `terraform apply` ran
+successfully against the `swarasa-dev` account (`091823298313`) — all 61
+resources created (Aurora, Lambda, Cognito, ECR, S3/CloudFront, Amplify,
+IAM, networking). See the Infra section below for what's actually running
+vs. what still needs data/config on top of it (no seed data, no Cognito
+users yet, backend Lambda is still serving a placeholder bootstrap image).
 
 **Reality check: there is no orchestrator running.** `orchestrator.py` was
 never implemented (see root `CLAUDE.md` "Coordination status" and
@@ -25,7 +28,7 @@ fully satisfied and asked to stop iterating for now, with an explicit intent
 to revisit later, not a final sign-off.
 
 ## Open PRs
-- None — all merged through #33 (see DECISIONS.md for what each did)
+- None — all merged through #39 (see DECISIONS.md for what each did)
 
 ## Architect (schema + contracts)
 - [x] 13 entities modeled, 2 migrations written (never run)
@@ -43,7 +46,11 @@ to revisit later, not a final sign-off.
 - [x] `/claim` (submit/approve/reject), `/auth/me`
 - [x] `/cuisine-tags` (public read list)
 - [ ] Menu, deals, Stripe — Phase 2, not started (correctly)
-- Container image built (Dockerfile), never pushed to ECR (no ECR repo exists yet)
+- Container image built (Dockerfile); ECR repo now exists, but only a
+  placeholder `:bootstrap` image has been pushed (one-time, to unblock
+  Lambda's first create) — the real backend image still needs its first
+  push, which happens automatically via `deploy-backend.yml` on the next
+  `backend/**` merge to `main`
 
 ## Frontend (Next.js)
 - [x] Project scaffold, typed API client, auth helpers, route skeleton
@@ -82,12 +89,29 @@ to revisit later, not a final sign-off.
 
 ## Infra (Terraform)
 - [x] Modules written: aurora, ecr, lambda, cognito, s3, amplify, ses (deferred), eventbridge, iam, networking
-- [ ] **Nothing applied — no Aurora, Lambda, Cognito, or ECR repo actually exist in AWS**
-- State key convention set (`envs/dev/terraform.tfstate`) — needs `terraform init -migrate-state` before next apply
+- [x] **Applied to `swarasa-dev` (091823298313) on 2026-09-15 — all 61
+      resources live**: Aurora Serverless v2 (PostGIS not yet enabled —
+      needs an Alembic migration run), Lambda + API Gateway, Cognito user
+      pool (4 groups, no users yet), ECR repo, S3 media bucket + CloudFront,
+      Amplify app, IAM roles, networking (VPC, subnets, endpoints)
+- Fixed along the way: Aurora `engine_version` `15.4` was deprecated by AWS
+  mid-Phase-1 (bumped to `15.18`); several `description` fields on security
+  groups / the DB subnet group used an em-dash, which AWS rejects as
+  non-ASCII (swapped for a plain hyphen)
+- **No seed data exists anywhere** — `restaurant_brand`/`restaurant_location`/
+  etc. tables are empty, no Cognito users in any of the 4 roles. Logging in
+  and testing as different user types needs this built first (not started)
+- State key convention set (`envs/dev/terraform.tfstate`) — in use, no
+  migration needed (fresh state store on a fresh account)
 
 ## DevOps (CI/CD)
-- [x] `deploy-backend.yml` drafted
-- [ ] Never run — no OIDC role deployed, no ECR repo, `DEV_DEPLOY_ROLE_ARN` secret not set
+- [x] `deploy-backend.yml` reviewed and fixed (PR #39) — the image-scan
+      critical-findings gate could be silently skipped on a workflow re-run;
+      now unconditional
+- [x] OIDC role, ECR repo, and `DEV_DEPLOY_ROLE_ARN` GitHub secret are all
+      real now (2026-09-15) — pipeline is ready to fire
+- [ ] Still never actually run — needs a real push under `backend/**` to
+      `main` to trigger the first end-to-end pipeline run
 
 ## QA / Tests
 - [x] pytest: 109 passing, 3 skipped (need real Postgres), 0 failing
@@ -117,5 +141,9 @@ to revisit later, not a final sign-off.
 1. Adopt a `data-testid` convention (Frontend Dev) so the e2e suite's
    selectors are more resilient — not urgent, but the fast-follow to do
    before it's a pain to retrofit
-2. `terraform apply` (human-run) — nothing goes live until this happens;
-   Phase 1 is otherwise feature-complete and testable locally without it
+2. Write a seed script (Backend Dev — doesn't exist yet) and create one
+   Cognito test user per role, so the app is actually loggable-into and
+   testable end-to-end as owner/manager/admin/registered_user
+3. Trigger the first real `deploy-backend.yml` run (merge something under
+   `backend/**`) so the Lambda serves the real FastAPI app instead of the
+   `:bootstrap` placeholder
