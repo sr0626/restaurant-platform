@@ -118,6 +118,27 @@ jobs:
       # waiter returns immediately once AWS's scan is complete, and
       # describe-image-scan-findings just returns the already-computed
       # result — so there's no cost to always enforcing it.
+      #
+      # Explicit start-image-scan added 2026-09-15: found live, in the
+      # swarasa-dev account, that scan_on_push doesn't reliably
+      # auto-trigger a scan the moment an image is pushed (confirmed:
+      # both the very first :bootstrap push and this workflow's own first
+      # real push sat at imageScanStatus=null for hours with no scan ever
+      # starting on their own — not a brief propagation delay, genuinely
+      # never triggered). Manually calling start-image-scan immediately
+      # confirmed working (PENDING returned right away), so trigger it
+      # explicitly rather than hoping scan_on_push fires — `|| true`
+      # because a scan already running/complete (e.g. scan_on_push DID
+      # fire, or this is a re-run) makes start-image-scan return an error
+      # that's fine to ignore; the wait step below is the actual gate.
+      - name: Start image scan (don't rely on scan_on_push alone — see comment)
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          aws ecr start-image-scan \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag="$IMAGE_TAG" || true
+
       - name: Wait for image scan, stop on critical findings
         env:
           IMAGE_TAG: ${{ github.sha }}
