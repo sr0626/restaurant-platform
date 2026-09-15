@@ -1,0 +1,14 @@
+{
+  "name": "restaurant-platform-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QA-owned Playwright e2e suite (see tests/CLAUDE.md). Separate from frontend/package.json — this is test tooling, not application code.",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.47.2"
+  }
+}
