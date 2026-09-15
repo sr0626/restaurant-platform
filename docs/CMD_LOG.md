@@ -123,3 +123,50 @@ git push -u origin test/phase1-playwright-e2e   # claude  (QA, Playwright e2e su
 gh pr create --draft --base main --head test/phase1-playwright-e2e   # claude  (opened as draft per draft-until-approved rule)
 gh pr ready 33   # claude  (Architect approved PR #33)
 ```
+
+## 2026-09-15
+```bash
+git push -u origin docs/status-e2e-owner-portal-merged   # claude
+gh pr create --base main --head docs/status-e2e-owner-portal-merged   # claude  (docs-only, opened ready per fast-path)
+gh repo rename swarasa --yes   # user  (restaurant-platform -> swarasa)
+git push -u origin docs/swarasa-brand-decision   # claude
+gh pr create --draft --base main --head docs/swarasa-brand-decision   # claude
+gh pr ready 35   # claude
+aws sts get-caller-identity --profile restaurant-platform-dev   # user  (expired token, triggered re-login)
+aws sso login --profile restaurant-platform-dev   # user
+aws sso login --profile swarasa-dev   # user  (new dev account, 091823298313)
+aws sts get-caller-identity --profile swarasa-dev   # user
+aws s3 mb s3://swarasa-tfstate-sr0626 --region us-east-1 --profile swarasa-dev   # user
+aws s3api put-bucket-versioning --bucket swarasa-tfstate-sr0626 --versioning-configuration Status=Enabled --profile swarasa-dev   # user
+aws dynamodb create-table --table-name swarasa-tfstate-lock --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --billing-mode PAY_PER_REQUEST --region us-east-1 --profile swarasa-dev   # user
+git push -u origin chore/rebrand-swarasa   # claude  (25+ files, restaurant-platform -> swarasa; infra/backend.tf repointed at new bucket/table)
+gh pr create --draft --base main --head chore/rebrand-swarasa   # claude
+gh pr ready 36   # claude
+git push -u origin docs/orchestrator-not-implemented   # claude
+gh pr create --base main --head docs/orchestrator-not-implemented   # claude  (docs-only, opened ready per fast-path)
+git push -u origin feature/logo-mark-wiring   # claude
+gh pr create --draft --base main --head feature/logo-mark-wiring   # claude
+git push origin feature/logo-mark-wiring   # claude  (STATUS.md wording fix, onto PR #38)
+gh pr ready 38   # claude  (Architect approved PR #38)
+aws sso login --profile swarasa-dev   # user  (expired token)
+terraform init   # claude  (infra/, swarasa-dev backend)
+terraform apply -target=module.ecr -auto-approve   # claude  (infra/, swarasa-dev)
+aws ecr get-login-password --region us-east-1 --profile swarasa-dev   # claude  (piped to docker login)
+docker pull public.ecr.aws/docker/library/hello-world:latest   # claude
+docker tag public.ecr.aws/docker/library/hello-world:latest 091823298313.dkr.ecr.us-east-1.amazonaws.com/swarasa-api-dev:bootstrap   # claude
+docker push 091823298313.dkr.ecr.us-east-1.amazonaws.com/swarasa-api-dev:bootstrap   # claude
+git push -u origin devops/finalize-deploy-pipeline   # claude
+gh pr create --draft --base main --head devops/finalize-deploy-pipeline   # claude
+gh pr ready 39   # claude  (Architect self-review approved PR #39)
+terraform plan   # user  (infra/, swarasa-dev)
+terraform apply   # user  (infra/, swarasa-dev — failed: Amplify GitHub credentials, RDS subnet group + security group description non-ASCII)
+aws rds describe-db-engine-versions --engine aurora-postgresql --profile swarasa-dev   # claude  (aurora-postgresql 15.4 deprecated by AWS)
+terraform apply --auto-approve   # claude  (infra/, swarasa-dev — failed: state lock, concurrent with user's own run)
+terraform apply   # user  (infra/, swarasa-dev — succeeded, 61 resources created)
+gh secret set DEV_DEPLOY_ROLE_ARN --repo sr0626/swarasa --body "arn:aws:iam::091823298313:role/swarasa-github-actions-deploy-dev"   # user
+git push -u origin infra/fix-apply-blockers   # claude  (Aurora engine_version 15.4->15.18, em-dash description fixes, found via the apply above)
+gh pr create --draft --base main --head infra/fix-apply-blockers   # claude
+gh pr ready 40   # claude  (Architect approved PR #40)
+git push -u origin docs/status-infra-live   # claude
+gh pr create --base main --head docs/status-infra-live   # claude  (docs-only, opened ready per fast-path)
+```
