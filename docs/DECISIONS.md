@@ -508,6 +508,25 @@ May 2026 | Amplify handles build + deploy + CDN in one service. GitHub Actions h
 backend and infra CI only.
 *Rejected: GitHub Actions for frontend deploy (extra complexity)*
 
+**One-off ops scripts (dev seed data, future admin/maintenance commands) run via a direct `aws lambda invoke` management-command payload, not a bastion or the RDS Data API**
+2026-09-15 | Backend Dev needed a way to actually run `backend/app/scripts/
+seed_dev_data.py` against real Aurora. Checked `infra/modules/networking` and
+`infra/modules/aurora` first, not assumed: no NAT Gateway, no bastion host, RDS
+Data API not enabled — the API Lambda's own VPC route is the only thing that can
+reach Aurora at all. `app/main.py`'s `handler` now branches on a
+`_management_command` key in the Lambda invoke event (bypassing API Gateway/
+Mangum) to a small dispatch table in `app/scripts/management.py`. Trust
+boundary: no HTTP/API Gateway surface at all — reachable only by a caller who
+already holds `lambda:InvokeFunction` on this one function in the target AWS
+account, the same boundary as `terraform apply` or any other direct AWS action
+in this repo. Same container image, same `CMD`, no Dockerfile/infra change.
+*Rejected: a small bastion EC2 instance + SSM Session Manager port-forwarding
+(new always-on-ish resource, new cost line, Infra work not justified for a
+low-frequency dev-ops need); enabling the RDS Data API (`enable_http_endpoint`
+on the Aurora cluster — cheaper and worth reconsidering later, but changes the
+app's DB access story more broadly than one seed script warrants; flagged for
+Infra to revisit if this pattern gets used often enough to want it).*
+
 ---
 
 ## Database & Data Model

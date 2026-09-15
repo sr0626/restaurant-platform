@@ -27,5 +27,27 @@ app.include_router(cuisine.router)
 
 # package_type = "Image" Lambda functions have no separate "handler" config
 # — the Dockerfile's CMD *is* the handler, in "<module>.<callable>" form
-# (infra/CLAUDE.md "Lambda + API Gateway"). `handler` is that callable.
-handler = Mangum(app)
+# (infra/CLAUDE.md "Lambda + API Gateway"). `handler` below is that
+# callable; `_mangum_handler` is the actual Mangum-wrapped ASGI app.
+_mangum_handler = Mangum(app)
+
+
+def handler(event, context):
+    """Lambda entry point.
+
+    Branches on event shape: a normal API Gateway HTTP API (payload format
+    2.0) proxy event goes to Mangum exactly as before. A direct
+    `aws lambda invoke` carrying a `_management_command` key instead runs a
+    one-off management script in this same container/VPC context, bypassing
+    API Gateway/Mangum entirely — see `app/scripts/management.py` for the
+    dispatch table and why this exists (Aurora has no network path reachable
+    from outside this Lambda's VPC — no NAT Gateway, no bastion, no RDS Data
+    API; see `app/scripts/seed_dev_data.py`'s module docstring). API Gateway
+    proxy events never carry that key, so this branch never fires for real
+    HTTP traffic.
+    """
+    if isinstance(event, dict) and "_management_command" in event:
+        from app.scripts.management import run_management_command
+
+        return run_management_command(event, context)
+    return _mangum_handler(event, context)
